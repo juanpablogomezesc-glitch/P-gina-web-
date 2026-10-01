@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juan Pablo Gómez</title>
+  <meta name="description" content="Página personal de Juan Pablo Gómez">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav">
+    <a href="#inicio" class="logo">JP</a>
+    <nav>
+      <a href="#sobre-mi">Sobre mí</a>
+      <a href="#proyectos">Proyectos</a>
+      <a href="#contacto">Contacto</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="inicio" class="hero">
+      <p class="saludo">Hola, soy</p>
+      <h1>Juan Pablo Gómez</h1>
+      <p class="lema">Escribe aquí una frase corta sobre lo que haces o lo que te apasiona.</p>
+      <a href="#contacto" class="boton">Hablemos</a>
+    </section>
+
+    <section id="sobre-mi">
+      <h2>Sobre mí</h2>
+      <p>
+        Cuéntale al mundo quién eres: de dónde vienes, qué estudias o a qué te dedicas,
+        y qué te gustaría lograr. Dos o tres frases son suficientes.
+      </p>
+    </section>
+
+    <section id="proyectos">
+      <h2>Proyectos</h2>
+      <div class="tarjetas">
+        <article class="tarjeta">
+          <h3>Proyecto uno</h3>
+          <p>Una breve descripción de algo que hayas hecho y de lo que estés orgulloso.</p>
+        </article>
+        <article class="tarjeta">
+          <h3>Proyecto dos</h3>
+          <p>Otro trabajo, idea o experiencia que quieras mostrar.</p>
+        </article>
+        <article class="tarjeta">
+          <h3>Proyecto tres</h3>
+          <p>Puedes añadir o quitar tarjetas según lo necesites.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="contacto">
+      <h2>Contacto</h2>
+      <p>¿Quieres escribirme? Estaré encantado de responder.</p>
+      <a href="mailto:juanpablogomez.esc@gmail.com" class="boton">Enviar un correo</a>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; <span id="anio"></span> Juan Pablo Gómez</p>
+  </footer>
+
+  <script>
+    document.getElementById('anio').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
