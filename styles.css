@@ -179,3 +179,9 @@ figure img { display: block; width: 100%; height: auto; object-fit: cover; borde
   .como-trabajo img { aspect-ratio: 4 / 3; }
 }
 .hero-foto img, .como-trabajo img { object-position: center 30%; }
+
+.fotos-dobles { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0 2rem; }
+.fotos-dobles img { aspect-ratio: 3 / 4; }
+.fotos-dobles figcaption, .foto-chica figcaption { font-size: 0.8rem; color: var(--suave); margin-top: 0.5rem; line-height: 1.4; }
+.foto-chica { max-width: 320px; margin: 1.5rem auto 2rem; }
+.foto-chica img { aspect-ratio: 3 / 4; }
