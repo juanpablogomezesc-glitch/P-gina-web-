@@ -1,18 +1,27 @@
-# Mi página web
+# Blog de entrenamiento · Juan Pablo Gómez
 
-Página personal sencilla hecha con HTML y CSS, sin dependencias.
+Base de conocimiento para alumnos: artículos que profundizan lo que se publica
+en Instagram y en el grupo de WhatsApp. HTML y CSS, sin dependencias.
 
-## Cómo verla
+## Estructura
 
-Abre `index.html` en tu navegador.
+- `index.html`: portada con la lista de artículos.
+- `articulos/`: un archivo por artículo (por ejemplo `peso-muerto.html`).
+- `articulos/_plantilla.html`: base para escribir un artículo nuevo.
+- `styles.css`: diseño y colores.
 
-## Cómo personalizarla
+## Cómo sumar un artículo
 
-- **Textos**: edita `index.html` (nombre, frase, sobre mí, proyectos, contacto).
-- **Colores**: cambia las variables al inicio de `styles.css` (`--acento`, `--fondo`, etc.).
+1. Copiá `articulos/_plantilla.html` con un nombre nuevo, sin espacios ni tildes
+   (por ejemplo `articulos/descanso.html`).
+2. Reemplazá los textos en mayúsculas y escribí el contenido.
+3. En `index.html`, dentro de la sección "Artículos", copiá una tarjeta y
+   apuntala al archivo nuevo.
 
-## Publicarla gratis con GitHub Pages
+## Publicarlo gratis con GitHub Pages
 
-1. En GitHub, ve a **Settings → Pages**.
-2. En *Source* elige la rama y la carpeta `/ (root)`.
-3. Guarda; en un par de minutos tendrás tu web en `https://<usuario>.github.io/<repositorio>/`.
+1. En GitHub, andá a **Settings → Pages**.
+2. En *Source* elegí la rama `main` y la carpeta `/ (root)`.
+3. En unos minutos el sitio queda en
+   `https://juanpablogomezesc-glitch.github.io/P-gina-web-/` y cada artículo en
+   `.../articulos/nombre.html`, listo para compartir por WhatsApp o Instagram.

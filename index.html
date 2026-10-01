@@ -3,63 +3,75 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Juan Pablo Gómez</title>
-  <meta name="description" content="Página personal de Juan Pablo Gómez">
+  <title>Juan Pablo Gómez · Entrenamiento personal</title>
+  <meta name="description" content="Artículos sobre entrenamiento, técnica, descanso y alimentación, explicados de forma simple por Juan Pablo Gómez, entrenador personal.">
+  <meta property="og:title" content="Juan Pablo Gómez · Entrenamiento personal">
+  <meta property="og:description" content="Artículos sobre entrenamiento, técnica, descanso y alimentación, explicados de forma simple.">
+  <meta property="og:type" content="website">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="nav">
-    <a href="#inicio" class="logo">JP</a>
+    <a href="index.html" class="logo">JP<span>·</span>Entrenamiento</a>
     <nav>
+      <a href="#articulos">Artículos</a>
       <a href="#sobre-mi">Sobre mí</a>
-      <a href="#proyectos">Proyectos</a>
       <a href="#contacto">Contacto</a>
     </nav>
   </header>
 
   <main>
-    <section id="inicio" class="hero">
-      <p class="saludo">Hola, soy</p>
-      <h1>Juan Pablo Gómez</h1>
-      <p class="lema">Escribe aquí una frase corta sobre lo que haces o lo que te apasiona.</p>
-      <a href="#contacto" class="boton">Hablemos</a>
+    <section class="hero">
+      <p class="saludo">Entrenamiento personal</p>
+      <h1>Entrená sabiendo <em>qué</em> hacés y <em>por qué</em>.</h1>
+      <p class="lema">
+        Respuestas claras a las preguntas que surgen en cada entrenamiento:
+        técnica de ejercicios, descanso, alimentación y más.
+      </p>
+      <a href="#articulos" class="boton">Ver artículos</a>
+    </section>
+
+    <section id="articulos">
+      <h2>Artículos</h2>
+      <div class="tarjetas">
+        <!-- Para sumar un artículo nuevo, copiá este bloque <a>…</a> y cambiá el enlace, la categoría, el título y el resumen. -->
+        <a class="tarjeta" href="articulos/peso-muerto.html">
+          <span class="etiqueta">Técnica</span>
+          <h3>Peso muerto: cómo hacerlo bien</h3>
+          <p>Paso a paso, músculos que trabaja, errores comunes y cómo empezar de forma segura.</p>
+          <span class="leer">Leer artículo →</span>
+        </a>
+        <div class="tarjeta proximamente">
+          <span class="etiqueta">Descanso</span>
+          <h3>Próximamente</h3>
+          <p>Por qué descansar también es parte del entrenamiento.</p>
+        </div>
+        <div class="tarjeta proximamente">
+          <span class="etiqueta">Alimentación</span>
+          <h3>Próximamente</h3>
+          <p>Lo básico para acompañar tu entrenamiento con la comida.</p>
+        </div>
+      </div>
     </section>
 
     <section id="sobre-mi">
       <h2>Sobre mí</h2>
       <p>
-        Cuéntale al mundo quién eres: de dónde vienes, qué estudias o a qué te dedicas,
-        y qué te gustaría lograr. Dos o tres frases son suficientes.
+        Soy Juan Pablo Gómez, entrenador personal. Armé este espacio para reunir, en un solo lugar,
+        las respuestas a las preguntas que me hacen todos los días. Si entrenás conmigo, acá vas a
+        encontrar más detalle sobre lo que vemos en las clases, en Instagram y en el grupo de WhatsApp.
       </p>
-    </section>
-
-    <section id="proyectos">
-      <h2>Proyectos</h2>
-      <div class="tarjetas">
-        <article class="tarjeta">
-          <h3>Proyecto uno</h3>
-          <p>Una breve descripción de algo que hayas hecho y de lo que estés orgulloso.</p>
-        </article>
-        <article class="tarjeta">
-          <h3>Proyecto dos</h3>
-          <p>Otro trabajo, idea o experiencia que quieras mostrar.</p>
-        </article>
-        <article class="tarjeta">
-          <h3>Proyecto tres</h3>
-          <p>Puedes añadir o quitar tarjetas según lo necesites.</p>
-        </article>
-      </div>
     </section>
 
     <section id="contacto">
       <h2>Contacto</h2>
-      <p>¿Quieres escribirme? Estaré encantado de responder.</p>
+      <p>¿Querés entrenar conmigo o tenés una duda sobre algún tema? Escribime.</p>
       <a href="mailto:juanpablogomez.esc@gmail.com" class="boton">Enviar un correo</a>
     </section>
   </main>
 
   <footer>
-    <p>&copy; <span id="anio"></span> Juan Pablo Gómez</p>
+    <p>&copy; <span id="anio"></span> Juan Pablo Gómez · Entrenamiento personal</p>
   </footer>
 
   <script>
