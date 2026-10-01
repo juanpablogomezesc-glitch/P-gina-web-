@@ -1,44 +1,45 @@
+/* Paleta: negro, grises y naranja */
 :root {
-  --fondo: #fafaf9;
-  --texto: #1c1917;
-  --suave: #57534e;
-  --acento: #c2410c;
-  --acento-suave: #ffedd5;
-  --tarjeta: #ffffff;
-  --borde: #e7e5e4;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fondo: #0c0a09;
-    --texto: #f5f5f4;
-    --suave: #a8a29e;
-    --acento: #fb923c;
-    --acento-suave: #431407;
-    --tarjeta: #1c1917;
-    --borde: #292524;
-  }
+  --fondo: #0d0d0d;
+  --texto: #f2f2f2;
+  --suave: #a3a3a3;
+  --acento: #ff6b1a;
+  --acento-suave: rgba(255, 107, 26, 0.12);
+  --tarjeta: #1a1a1a;
+  --borde: #2e2e2e;
+  --fuente-titulos: "Oswald", "Arial Narrow", sans-serif;
+  --fuente-texto: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+h1, h2, h3, .logo, .etiqueta, .boton {
+  font-family: var(--fuente-titulos);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+h1, h2 { font-weight: 700; }
+h3 { font-weight: 600; }
+
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--fuente-texto);
   background: var(--fondo);
   color: var(--texto);
   line-height: 1.6;
 }
 
 .nav {
+  backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1rem clamp(1rem, 5vw, 4rem);
-  background: var(--fondo);
+  background: rgba(13, 13, 13, 0.9);
   border-bottom: 1px solid var(--borde);
   z-index: 10;
 }
@@ -47,7 +48,7 @@ body {
 .logo span { color: var(--acento); margin: 0 0.15rem; }
 
 .nav nav { display: flex; gap: 1.25rem; }
-.nav nav a { color: var(--suave); text-decoration: none; font-size: 0.95rem; }
+.nav nav a { color: var(--suave); text-decoration: none; font-size: 0.95rem; white-space: nowrap; }
 .nav nav a:hover { color: var(--texto); }
 
 main { max-width: 960px; margin: 0 auto; padding: 0 clamp(1rem, 5vw, 2rem); }
@@ -68,13 +69,13 @@ section > p { color: var(--suave); max-width: 40rem; margin-bottom: 1.5rem; }
   align-self: flex-start;
   padding: 0.75rem 1.5rem;
   background: var(--acento);
-  color: #fff;
-  border-radius: 999px;
+  color: #0d0d0d;
+  border-radius: 6px;
   text-decoration: none;
   font-weight: 600;
   transition: transform 0.15s;
 }
-.boton:hover { transform: translateY(-2px); }
+.boton:hover { transform: translateY(-2px); background: #ff8540; }
 
 .tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; }
 .tarjeta {
@@ -140,6 +141,8 @@ details p { margin: 0.75rem 0 0; color: var(--suave); }
 footer { text-align: center; padding: 2rem; color: var(--suave); border-top: 1px solid var(--borde); font-size: 0.9rem; }
 
 @media (max-width: 480px) {
-  .nav nav { gap: 0.75rem; }
+  .nav nav { gap: 0.9rem; }
   .nav nav a { font-size: 0.85rem; }
+  .nav nav a[href="#sobre-mi"] { display: none; }
+  .logo { font-size: 1rem; }
 }
