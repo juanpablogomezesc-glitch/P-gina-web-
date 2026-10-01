@@ -146,3 +146,10 @@ footer { text-align: center; padding: 2rem; color: var(--suave); border-top: 1px
   .nav nav a[href="#sobre-mi"] { display: none; }
   .logo { font-size: 1rem; }
 }
+
+.cita { font-size: 0.7em; vertical-align: super; margin-left: 0.1em; color: var(--acento); text-decoration: none; font-weight: 700; }
+.cita:hover { text-decoration: underline; }
+.bibliografia { margin-top: 3rem; padding: 0; }
+.bibliografia h2 { margin-top: 0; font-size: 1.2rem; }
+.bibliografia li { font-size: 0.9rem; color: var(--suave); }
+.bibliografia li:target { color: var(--texto); }
