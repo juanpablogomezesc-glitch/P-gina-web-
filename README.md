@@ -9,6 +9,10 @@ en Instagram y en el grupo de WhatsApp. HTML y CSS, sin dependencias.
 - `articulos/`: un archivo por artículo (por ejemplo `peso-muerto.html`).
 - `articulos/_plantilla.html`: base para escribir un artículo nuevo.
 - `styles.css`: diseño y colores.
+- `turnos.html` y `turnos.js`: página para reservar y cancelar turnos.
+- `sistema-turnos/`: el código que guarda los turnos en una planilla de Google,
+  con las instrucciones para ponerlo en marcha (`sistema-turnos/INSTRUCCIONES.md`)
+  y sus pruebas (`node --test sistema-turnos/pruebas/pruebas.test.js`).
 
 ## Cómo sumar un artículo
 

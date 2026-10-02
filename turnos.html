@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reservar turno · Juan Pablo Gómez</title>
+  <meta name="description" content="Reservá tu turno de entrenamiento con Juan Pablo Gómez.">
+  <meta property="og:title" content="Reservar turno · Juan Pablo Gómez">
+  <meta property="og:description" content="Elegí día y horario y reservá tu lugar.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav">
+    <a href="index.html" class="logo">JP<span>·</span>Entrenamiento</a>
+    <nav>
+      <a href="index.html#articulos">Artículos</a>
+      <a href="turnos.html" aria-current="page">Turnos</a>
+      <a href="index.html#contacto">Contacto</a>
+    </nav>
+  </header>
+
+  <main class="turnos">
+    <p id="aviso-prueba" class="aviso-prueba" hidden>
+      Modo de prueba: los horarios son de ejemplo y las reservas no se guardan.
+    </p>
+
+    <!-- Reservar -->
+    <section id="vista-reservar">
+      <span class="etiqueta">Turnos</span>
+      <h1>Reservá tu turno</h1>
+      <p class="bajada" id="reglas">Elegí el día y el horario. Te llega la confirmación por mail.</p>
+
+      <div id="estado" class="estado" role="status" aria-live="polite">Cargando horarios…</div>
+      <div id="dias" class="dias"></div>
+
+      <form id="formulario" class="formulario" hidden novalidate>
+        <h2>Tu reserva</h2>
+        <p class="turno-elegido" id="turno-elegido"></p>
+
+        <label for="lugares">¿Cuántos lugares?</label>
+        <select id="lugares" name="lugares"></select>
+
+        <div class="campos-dobles">
+          <div>
+            <label for="nombre">Nombre</label>
+            <input id="nombre" name="nombre" autocomplete="given-name" maxlength="60" required>
+          </div>
+          <div>
+            <label for="apellido">Apellido</label>
+            <input id="apellido" name="apellido" autocomplete="family-name" maxlength="60" required>
+          </div>
+        </div>
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" maxlength="120" required>
+
+        <!-- Campo trampa para robots: las personas no lo ven -->
+        <div class="trampa" aria-hidden="true">
+          <label for="sitio">No completar</label>
+          <input id="sitio" name="sitio" tabindex="-1" autocomplete="off">
+        </div>
+
+        <p id="error-formulario" class="error" role="alert" hidden></p>
+        <div class="acciones">
+          <button type="submit" class="boton" id="confirmar">Confirmar reserva</button>
+          <button type="button" class="boton-secundario" id="volver">Elegir otro horario</button>
+        </div>
+      </form>
+
+      <div id="exito" class="resultado" hidden>
+        <h2>¡Turno reservado!</h2>
+        <p id="exito-detalle"></p>
+        <button type="button" class="boton" id="otro-turno">Reservar otro turno</button>
+      </div>
+    </section>
+
+    <!-- Cancelar (se abre desde el enlace del mail) -->
+    <section id="vista-cancelar" hidden>
+      <span class="etiqueta">Turnos</span>
+      <h1>Cancelar turno</h1>
+      <div id="estado-cancelar" class="estado" role="status" aria-live="polite">Buscando tu reserva…</div>
+      <div id="detalle-cancelar" class="resultado" hidden>
+        <p id="texto-cancelar"></p>
+        <p id="error-cancelar" class="error" role="alert" hidden></p>
+        <div class="acciones">
+          <button type="button" class="boton" id="confirmar-cancelar">Sí, cancelar mi turno</button>
+          <a class="boton-secundario" href="turnos.html">No, volver</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; <span id="anio"></span> Juan Pablo Gómez · Entrenamiento personal</p>
+  </footer>
+
+  <script src="turnos.js"></script>
+</body>
+</html>

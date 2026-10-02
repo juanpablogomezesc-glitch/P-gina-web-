@@ -185,3 +185,47 @@ figure img { display: block; width: 100%; height: auto; object-fit: cover; borde
 .fotos-dobles figcaption, .foto-chica figcaption { font-size: 0.8rem; color: var(--suave); margin-top: 0.5rem; line-height: 1.4; }
 .foto-chica { max-width: 320px; margin: 1.5rem auto 2rem; }
 .foto-chica img { aspect-ratio: 3 / 4; }
+
+/* Turnos */
+.turnos { max-width: 46rem; padding-top: 3rem; padding-bottom: 4rem; }
+.turnos h1 { font-size: clamp(2rem, 6vw, 3rem); margin: 0.75rem 0 0.75rem; }
+.turnos .bajada { color: var(--suave); margin-bottom: 2rem; }
+.aviso-prueba { background: var(--acento-suave); border: 1px dashed var(--acento); color: var(--texto); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.9rem; }
+.estado { color: var(--suave); padding: 1rem 0; }
+.estado.error, .error { color: #ff8a80; }
+.dias { display: grid; gap: 1.75rem; }
+.dia h2 { font-size: 1.2rem; margin-bottom: 0.75rem; }
+.horarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; }
+.horario {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem;
+  background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px;
+  padding: 0.85rem 1rem; color: var(--texto); cursor: pointer; font: inherit; text-align: left;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.horario:hover, .horario:focus-visible { border-color: var(--acento); transform: translateY(-2px); outline: none; }
+.horario strong { font-family: var(--fuente-titulos); font-size: 1.4rem; letter-spacing: 0.02em; }
+.horario span { font-size: 0.8rem; color: var(--suave); }
+.formulario, .resultado { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 1.5rem; display: grid; gap: 0.5rem; }
+.formulario h2, .resultado h2 { font-size: 1.3rem; margin: 0; }
+.turno-elegido { color: var(--acento); font-weight: 700; margin-bottom: 0.75rem; }
+.formulario label { font-size: 0.85rem; color: var(--suave); margin-top: 0.5rem; display: block; }
+.formulario input, .formulario select {
+  width: 100%; padding: 0.75rem 0.9rem; margin-top: 0.3rem; font: inherit; color: var(--texto);
+  background: var(--fondo); border: 1px solid var(--borde); border-radius: 8px;
+}
+.formulario input:focus, .formulario select:focus { outline: 2px solid var(--acento); outline-offset: 1px; }
+.campos-dobles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.trampa { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.acciones { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; align-items: center; }
+.boton { border: 0; cursor: pointer; font-size: 1rem; }
+.boton:disabled { opacity: 0.6; cursor: wait; transform: none; }
+.boton-secundario { background: none; border: 1px solid var(--borde); color: var(--texto); border-radius: 6px; padding: 0.7rem 1.2rem; font: inherit; cursor: pointer; text-decoration: none; }
+.boton-secundario:hover { border-color: var(--suave); }
+.resultado p { color: var(--suave); }
+.nav nav a[aria-current="page"] { color: var(--acento); }
+@media (max-width: 480px) { .campos-dobles { grid-template-columns: 1fr; } }
+[hidden] { display: none !important; }
+@media (max-width: 480px) {
+  .nav { gap: 0.75rem; }
+  .nav nav a[href$="#contacto"] { display: none; }
+}
