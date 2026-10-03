@@ -21,27 +21,28 @@ const API_URL = '';
   let maxLugares = 4;
 
   async function cargarHorarios() {
-    mostrar('estado', 'Cargando horarios…');
-    $('dias').replaceChildren();
+    mostrarEsqueleto();
     let r;
     try {
       r = await api.horarios();
     } catch (_) {
-      return mostrar('estado', 'No pudimos cargar los horarios. Revisá tu conexión y recargá la página.', true);
+      return fallo('No pudimos cargar los horarios. Revisá tu conexión y recargá la página.');
     }
-    if (!r.ok) return mostrar('estado', r.error, true);
+    if (!r.ok) return fallo(r.error);
 
     maxLugares = r.reglas.maxLugares;
     $('reglas').textContent =
       `Elegí el día y el horario. Podés reservar hasta ${horas(r.reglas.horasReservar)} antes de la clase ` +
       `y cancelar hasta ${horas(r.reglas.horasCancelar)} antes. Te llega la confirmación por mail.`;
 
+    $('dias').replaceChildren();
     if (!r.dias.length) return mostrar('estado', 'No hay horarios disponibles por ahora. Volvé a fijarte más tarde.');
     $('estado').hidden = true;
 
-    r.dias.forEach(dia => {
+    r.dias.forEach((dia, i) => {
       const bloque = document.createElement('div');
       bloque.className = 'dia';
+      bloque.style.setProperty('--i', Math.min(i, 6)); // los días aparecen en cascada
       const titulo = document.createElement('h2');
       titulo.textContent = dia.etiqueta;
       const lista = document.createElement('div');
@@ -61,6 +62,36 @@ const API_URL = '';
       bloque.append(titulo, lista);
       $('dias').append(bloque);
     });
+  }
+
+  // Mientras cargan los horarios se dibuja la forma de lo que va a aparecer.
+  function mostrarEsqueleto() {
+    $('estado').hidden = true;
+    const caja = document.createElement('div');
+    caja.className = 'esqueleto';
+    caja.setAttribute('role', 'status');
+    const aviso = document.createElement('span');
+    aviso.className = 'solo-lectores';
+    aviso.textContent = 'Cargando horarios…';
+    caja.append(aviso);
+    for (let d = 0; d < 2; d++) {
+      const dia = document.createElement('div');
+      dia.className = 'esqueleto-dia';
+      dia.setAttribute('aria-hidden', 'true');
+      const titulo = document.createElement('div');
+      titulo.className = 'esqueleto-titulo';
+      const fila = document.createElement('div');
+      fila.className = 'esqueleto-fila';
+      for (let i = 0; i < 3; i++) fila.append(document.createElement('span'));
+      dia.append(titulo, fila);
+      caja.append(dia);
+    }
+    $('dias').replaceChildren(caja);
+  }
+
+  function fallo(texto) {
+    $('dias').replaceChildren();
+    mostrar('estado', texto, true);
   }
 
   function elegir(dia, turno) {
