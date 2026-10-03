@@ -7,103 +7,206 @@
   <meta name="color-scheme" content="dark">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <title>Juan Pablo Gómez · Entrenamiento personal</title>
-  <meta name="description" content="Artículos sobre entrenamiento, técnica, descanso y alimentación, explicados de forma simple por Juan Pablo Gómez, entrenador personal.">
+  <meta name="description" content="Entrenamiento personal con seguimiento semana a semana. Artículos sobre técnica, descanso y alimentación, explicados de forma simple por Juan Pablo Gómez.">
   <meta property="og:title" content="Juan Pablo Gómez · Entrenamiento personal">
-  <meta property="og:description" content="Artículos sobre entrenamiento, técnica, descanso y alimentación, explicados de forma simple.">
+  <meta property="og:description" content="Entrenamiento personal con seguimiento semana a semana, y artículos para entender qué hacés y por qué.">
   <meta property="og:type" content="website">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Las animaciones de entrada solo se activan si el script de la página carga bien.
+    document.documentElement.classList.add('js');
+    setTimeout(function () { if (!window.__inicioListo) document.documentElement.classList.remove('js'); }, 3000);
+  </script>
+  <script src="inicio.js" defer></script>
 </head>
 <body>
   <a class="saltar" href="#contenido">Saltar al contenido</a>
   <header class="nav">
-    <a href="index.html" class="logo">JP<span>·</span>Entrenamiento</a>
+    <a href="index.html" class="logo">JP<span>·</span><span class="logo-largo">Entrenamiento</span></a>
     <nav>
       <a href="#articulos">Artículos</a>
-      <a href="turnos.html">Turnos</a>
       <a href="#sobre-mi">Sobre mí</a>
       <a href="#contacto">Contacto</a>
+      <a href="turnos.html" class="nav-cta">Turnos</a>
     </nav>
   </header>
 
-  <main id="contenido">
+  <main id="contenido" class="inicio">
+
+    <!-- Portada -->
     <section class="hero">
-      <div class="hero-texto">
-        <p class="saludo">Entrenamiento personal</p>
-        <h1>Entrená sabiendo <em>qué</em> hacés y <em>por qué</em>.</h1>
-        <p class="lema">
-          Respuestas claras a las preguntas que surgen en cada entrenamiento:
-          técnica de ejercicios, descanso, alimentación y más.
-        </p>
-        <div class="acciones">
-          <a href="turnos.html" class="boton">Reservar turno</a>
-          <a href="#articulos" class="boton-secundario">Ver artículos</a>
+      <div class="contenedor hero-grid">
+        <div class="hero-texto">
+          <p class="saludo reveal">Entrenamiento personal</p>
+          <h1 class="titular">
+            <span class="linea" style="--n:0"><span>Entrená</span> <span>sabiendo</span></span>
+            <span class="linea" style="--n:1"><span class="contorno">qué</span> <span>hacés</span></span>
+            <span class="linea" style="--n:2"><span>y <em>por qué</em>.</span></span>
+          </h1>
+          <p class="lema reveal" style="--d:5">
+            Respuestas claras a las preguntas que surgen en cada entrenamiento:
+            técnica de ejercicios, descanso, alimentación y más.
+          </p>
+          <div class="acciones reveal" style="--d:6">
+            <a href="turnos.html" class="boton">Reservar turno</a>
+            <a href="#articulos" class="boton-secundario">Ver artículos</a>
+          </div>
         </div>
+        <figure class="hero-foto">
+          <div class="marco">
+            <img src="imagenes/hero.jpg" alt="Juan Pablo revisando el plan de entrenamiento en la tablet junto a una alumna" width="1200" height="1600" fetchpriority="high" decoding="async">
+          </div>
+        </figure>
       </div>
-      <figure class="hero-foto">
-        <img src="imagenes/entrenando-con-alumna.jpg" alt="Juan Pablo revisando el plan de entrenamiento en la tablet junto a una alumna" width="900" height="1200" fetchpriority="high" decoding="async">
-      </figure>
     </section>
 
+    <!-- Cinta en movimiento -->
+    <div class="cinta" aria-hidden="true">
+      <div class="cinta-pista">
+        <span>Técnica</span><i>✦</i><span>Fuerza</span><i>✦</i><span>Descanso</span><i>✦</i><span>Alimentación</span><i>✦</i><span>Constancia</span><i>✦</i><span>Seguimiento</span><i>✦</i>
+        <span>Técnica</span><i>✦</i><span>Fuerza</span><i>✦</i><span>Descanso</span><i>✦</i><span>Alimentación</span><i>✦</i><span>Constancia</span><i>✦</i><span>Seguimiento</span><i>✦</i>
+      </div>
+    </div>
+
+    <!-- Cómo trabajo -->
+    <section id="como-trabajo">
+      <div class="contenedor">
+        <h2 class="reveal">Cómo trabajo</h2>
+        <ol class="trabajo">
+          <li class="reveal" style="--d:0">
+            <span class="numero" aria-hidden="true">01</span>
+            <h3>Un plan para cada alumno</h3>
+            <p>Cada alumno tiene su plan, y lo armo yo.</p>
+          </li>
+          <li class="reveal" style="--d:1">
+            <span class="numero" aria-hidden="true">02</span>
+            <h3>Seguimiento semana a semana</h3>
+            <p>Registro los ejercicios, las cargas y cómo te sentiste en cada sesión, para ajustar el entrenamiento y saber en qué punto estás.</p>
+          </li>
+          <li class="reveal" style="--d:2">
+            <span class="numero" aria-hidden="true">03</span>
+            <h3>Respuestas con respaldo</h3>
+            <p>Cuando algo necesita más explicación, lo escribo acá, con respaldo en la bibliografía.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Galería -->
+    <section id="en-accion" class="galeria">
+      <div class="contenedor galeria-cabecera">
+        <h2 class="reveal">En acción</h2>
+        <div class="flechas" aria-hidden="true">
+          <button type="button" class="flecha" data-dir="-1" tabindex="-1" aria-label="Anterior">←</button>
+          <button type="button" class="flecha" data-dir="1" tabindex="-1" aria-label="Siguiente">→</button>
+        </div>
+      </div>
+      <div class="carrusel" tabindex="0" role="region" aria-label="Fotos de entrenamientos, se desplaza hacia los costados">
+        <figure>
+          <img src="imagenes/galeria/pm-posicion-inicial.jpg" alt="Alumna en la posición inicial del peso muerto, vista de costado" width="640" height="853" loading="lazy" decoding="async">
+          <figcaption>Posición inicial del peso muerto</figcaption>
+        </figure>
+        <figure>
+          <img src="imagenes/galeria/pm-agarre.jpg" alt="Alumno tomando la barra con las manos por fuera de las piernas" width="640" height="853" loading="lazy" decoding="async">
+          <figcaption>El agarre, paso a paso</figcaption>
+        </figure>
+        <figure>
+          <img src="imagenes/galeria/pm-bisagra-mancuernas.jpg" alt="Alumna haciendo la bisagra de cadera con mancuernas" width="640" height="853" loading="lazy" decoding="async">
+          <figcaption>Bisagra de cadera con mancuernas</figcaption>
+        </figure>
+        <figure>
+          <img src="imagenes/galeria/planificacion.jpg" alt="Juan Pablo cargando un plan de entrenamiento en la tablet" width="640" height="853" loading="lazy" decoding="async">
+          <figcaption>Cada plan, registrado</figcaption>
+        </figure>
+        <figure>
+          <img src="imagenes/galeria/pm-bisagra-barra.jpg" alt="Alumna llevando la cadera hacia atrás con la barra cerca de las piernas" width="640" height="853" loading="lazy" decoding="async">
+          <figcaption>La misma bisagra, con barra</figcaption>
+        </figure>
+        <figure>
+          <img src="imagenes/galeria/entrenando-con-alumna.jpg" alt="Juan Pablo y una alumna mirando el plan en la tablet" width="640" height="853" loading="lazy" decoding="async">
+          <figcaption>Revisando el plan juntos</figcaption>
+        </figure>
+        <figure>
+          <img src="imagenes/galeria/pm-espalda-firme.jpg" alt="Alumna con la espalda firme y la barra en el piso antes de levantar" width="640" height="853" loading="lazy" decoding="async">
+          <figcaption>Espalda firme antes de despegar</figcaption>
+        </figure>
+        <figure>
+          <img src="imagenes/galeria/pm-mancuerna.jpg" alt="Alumna haciendo peso muerto con una sola mancuerna entre los pies" width="640" height="853" loading="lazy" decoding="async">
+          <figcaption>Primer paso: una mancuerna</figcaption>
+        </figure>
+        <figure>
+          <img src="imagenes/galeria/peso-muerto-alumna.jpg" alt="Alumna con los pies abiertos en posición de peso muerto sumo" width="640" height="853" loading="lazy" decoding="async">
+          <figcaption>Variante sumo</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Artículos -->
     <section id="articulos">
-      <h2>Artículos</h2>
-      <div class="tarjetas">
-        <!-- Para sumar un artículo nuevo, copiá este bloque <a>…</a> y cambiá el enlace, la categoría, el título y el resumen. -->
-        <a class="tarjeta" href="articulos/peso-muerto.html">
-          <span class="etiqueta">Técnica</span>
-          <h3>Peso muerto: cómo hacerlo bien</h3>
-          <p>Paso a paso, músculos que trabaja, errores comunes y cómo empezar de forma segura.</p>
-          <span class="leer">Leer artículo →</span>
-        </a>
-        <div class="tarjeta proximamente">
-          <span class="etiqueta">Descanso</span>
-          <h3>Próximamente</h3>
-          <p>Por qué descansar también es parte del entrenamiento.</p>
-        </div>
-        <div class="tarjeta proximamente">
-          <span class="etiqueta">Alimentación</span>
-          <h3>Próximamente</h3>
-          <p>Lo básico para acompañar tu entrenamiento con la comida.</p>
+      <div class="contenedor">
+        <h2 class="reveal">Artículos</h2>
+        <div class="tarjetas">
+          <!-- Para sumar un artículo nuevo, copiá este bloque <a>…</a> y cambiá el enlace, la foto, la categoría, el título y el resumen. -->
+          <a class="tarjeta tarjeta-articulo reveal" href="articulos/peso-muerto.html" style="--d:0">
+            <div class="portada"><img src="imagenes/galeria/pm-posicion-inicial.jpg" alt="" width="640" height="853" loading="lazy" decoding="async"></div>
+            <div class="tarjeta-texto">
+              <span class="etiqueta">Técnica</span>
+              <h3>Peso muerto: cómo hacerlo bien</h3>
+              <p>Paso a paso, músculos que trabaja, errores comunes y cómo empezar de forma segura.</p>
+              <span class="leer">Leer artículo →</span>
+            </div>
+          </a>
+          <div class="tarjeta proximamente reveal" style="--d:1">
+            <span class="etiqueta">Descanso</span>
+            <h3>Próximamente</h3>
+            <p>Por qué descansar también es parte del entrenamiento.</p>
+          </div>
+          <div class="tarjeta proximamente reveal" style="--d:2">
+            <span class="etiqueta">Alimentación</span>
+            <h3>Próximamente</h3>
+            <p>Lo básico para acompañar tu entrenamiento con la comida.</p>
+          </div>
         </div>
       </div>
     </section>
 
+    <!-- Sobre mí -->
     <section id="sobre-mi" class="sobre-mi">
-      <img src="imagenes/juan-pablo.jpg" alt="Juan Pablo Gómez, entrenador personal" class="retrato" width="657" height="657" loading="lazy">
-      <div>
-        <h2>Sobre mí</h2>
-        <p>
-          Soy Juan Pablo Gómez, entrenador personal. Armé este espacio para reunir, en un solo lugar,
-          las respuestas a las preguntas que me hacen todos los días. Si entrenás conmigo, acá vas a
-          encontrar más detalle sobre lo que vemos en las clases, en Instagram y en el grupo de WhatsApp.
-        </p>
+      <div class="contenedor sobre-mi-grid">
+        <img src="imagenes/juan-pablo.jpg" alt="Juan Pablo Gómez, entrenador personal" class="retrato reveal" width="657" height="657" loading="lazy">
+        <div class="reveal" style="--d:1">
+          <h2>Sobre mí</h2>
+          <p>
+            Soy Juan Pablo Gómez, entrenador personal. Armé este espacio para reunir, en un solo lugar,
+            las respuestas a las preguntas que me hacen todos los días. Si entrenás conmigo, acá vas a
+            encontrar más detalle sobre lo que vemos en las clases, en Instagram y en el grupo de WhatsApp.
+          </p>
+        </div>
       </div>
     </section>
 
-    <section class="como-trabajo">
-      <figure>
-        <img src="imagenes/planificacion.jpg" alt="Juan Pablo cargando un plan de entrenamiento en la tablet" width="900" height="1200" loading="lazy">
-      </figure>
-      <div>
-        <h2>Cómo trabajo</h2>
-        <p>
-          Cada alumno tiene su plan. Registro los ejercicios, las cargas y cómo te sentiste en cada
-          sesión, para ajustar el entrenamiento semana a semana y saber siempre en qué punto estás.
-        </p>
-        <p>
-          Y cuando algo necesita más explicación, lo escribo acá, con respaldo en la bibliografía.
-        </p>
+    <!-- Reservar -->
+    <section class="reserva">
+      <div class="contenedor">
+        <div class="reserva-caja reveal">
+          <h2>Reservá tu lugar</h2>
+          <p>Elegí el día y el horario. Te llega la confirmación por mail.</p>
+          <a href="turnos.html" class="boton boton-negro">Reservar turno</a>
+        </div>
       </div>
     </section>
 
+    <!-- Contacto -->
     <section id="contacto">
-      <h2>Contacto</h2>
-      <p>¿Querés entrenar conmigo o tenés una duda sobre algún tema? Reservá tu turno o escribime.</p>
-      <div class="acciones">
-        <a href="turnos.html" class="boton">Reservar turno</a>
-        <a href="mailto:juanpablogomez.esc@gmail.com" class="boton-secundario">Enviar un correo</a>
+      <div class="contenedor">
+        <h2 class="reveal">Contacto</h2>
+        <p class="reveal">¿Tenés una duda sobre algún tema o querés empezar a entrenar? Escribime.</p>
+        <div class="acciones reveal">
+          <a href="mailto:juanpablogomez.esc@gmail.com" class="boton-secundario">Enviar un correo</a>
+        </div>
       </div>
     </section>
   </main>
