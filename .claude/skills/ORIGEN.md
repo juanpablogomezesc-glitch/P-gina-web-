@@ -29,3 +29,26 @@ el detector automático de errores de diseño, el modo `live` y los atajos `pin`
 
 Para instalar la versión completa, copiar también `scripts/` del repositorio original
 (ver el riesgo descrito arriba antes de hacerlo).
+
+---
+
+# Taste Skill (solo `redesign-existing-projects`)
+
+Copiada del repositorio https://github.com/Leonxlnx/taste-skill (Leonxlnx, licencia MIT; ver
+`LICENSE-taste-skill`). Es una auditoría de diseño con lista de verificación para mejorar un sitio
+que ya existe, sin cambiar de tecnología. Se revisó el contenido completo antes de instalarla.
+
+Del repositorio se instaló **solo esta** de las 13 skills, porque las demás no suman a este proyecto:
+- `taste-skill`, `taste-skill-v1`, `gpt-tasteskill`, `soft-skill`: se superponen con Emil e
+  Impeccable y empujan hacia React, Tailwind y animaciones de scroll pesadas.
+- `minimalist-skill`, `brutalist-skill`: proponen paletas y estilos que chocan con la marca
+  (negro, gris y naranja).
+- `image-to-code-skill`, `imagegen-frontend-web`, `imagegen-frontend-mobile`, `brandkit`:
+  necesitan generación de imágenes.
+- `stitch-skill`: es para la herramienta Google Stitch.
+- `output-skill`: exige respuestas largas y completas; no hace falta.
+
+**Ojo:** esta skill trae opiniones propias (por ejemplo, cambiar la tipografía o evitar los
+subtítulos en mayúsculas). En este proyecto mandan las decisiones del dueño: paleta negro/gris/naranja,
+Oswald para títulos e Inter para texto, y títulos en mayúsculas. Si una skill propone algo
+distinto, se consulta antes de aplicarlo.
