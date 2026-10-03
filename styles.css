@@ -313,12 +313,6 @@ main.inicio { max-width: none; padding: 0; overflow-x: clip; }
   @keyframes deslizar { from { transform: translateY(-3%); } to { transform: translateY(4%); } }
 }
 
-/* Cinta en movimiento */
-.cinta { background: var(--acento); color: #0d0d0d; overflow: hidden; padding: 0.9rem 0; transform: rotate(-1deg); margin: 0.5rem -3% 1.5rem; }
-.cinta-pista { display: flex; align-items: center; gap: 1.5rem; padding-right: 1.5rem; width: max-content; white-space: nowrap; font-family: var(--fuente-titulos); text-transform: uppercase; font-weight: 700; font-size: clamp(1.4rem, 4vw, 2.2rem); letter-spacing: 0.03em; animation: correr 32s linear infinite; }
-.cinta-pista i { font-style: normal; opacity: 0.55; }
-@keyframes correr { to { transform: translateX(-50%); } }
-@media (hover: hover) and (pointer: fine) { .cinta:hover .cinta-pista { animation-play-state: paused; } }
 
 /* Cómo trabajo */
 .trabajo { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(1.5rem, 4vw, 3rem); padding: 0; margin: 0; }
@@ -385,8 +379,6 @@ main.inicio { max-width: none; padding: 0; overflow-x: clip; }
 /* Menos movimiento: se quedan los fundidos y se van los desplazamientos */
 @media (prefers-reduced-motion: reduce) {
   .titular .linea > span, .hero-foto .marco, .hero-foto img { animation: none; }
-  .cinta { transform: none; }
-  .cinta-pista { animation: none; flex-wrap: wrap; width: auto; justify-content: center; padding: 0 1rem; }
   @keyframes entrar-grande { from { opacity: 0; } }
   .trabajo li::before { transition: none; }
   .carrusel img, .portada img { transition: none; }
