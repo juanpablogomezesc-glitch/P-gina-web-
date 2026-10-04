@@ -40,6 +40,7 @@ function crearHoja(nombre) {
       },
     }),
     appendRow(fila) { datos.push([...fila]); },
+    getMaxRows: () => 1000,
     setFrozenRows() {},
   };
 }

@@ -146,3 +146,11 @@ test('avisa al entrenador si está activado', () => {
   assert.equal(g.mails[1].to, 'juanpablo@ejemplo.com');
   assert.match(g.mails[1].subject, /Nueva reserva: Ana Pérez/);
 });
+
+test('configurar no pisa una planilla existente y deja sus datos', () => {
+  const g = nuevo();
+  g.hojas['Horarios'].datos.push(['Jueves', '20:00', 3]);
+  g.configurar(); // segunda vez
+  assert.equal(g.hojas['Horarios'].datos.length, 10); // 1 encabezado + 8 ejemplos + 1 propio
+  assert.deepEqual(g.hojas['Horarios'].datos.at(-1), ['Jueves', '20:00', 3]);
+});

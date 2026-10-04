@@ -45,7 +45,7 @@ const HORA_MS = 60 * 60 * 1000;
 
 /* ───────────────────────── Puesta en marcha ───────────────────────── */
 
-/** Ejecutar una sola vez: crea las pestañas con ejemplos. No borra nada que ya exista. */
+/** Ejecutar una sola vez: crea las pestañas con ejemplos y deja los formatos listos. No borra ni pisa nada que ya exista. */
 function configurar() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.setSpreadsheetTimeZone(ZONA_HORARIA);
@@ -68,10 +68,13 @@ function configurar() {
 }
 
 function crearHoja_(ss, nombre, encabezados, filas, columnasTexto) {
-  if (ss.getSheetByName(nombre)) return;
-  const hoja = ss.insertSheet(nombre);
+  let hoja = ss.getSheetByName(nombre);
+  const nueva = !hoja;
+  if (nueva) hoja = ss.insertSheet(nombre);
   // Columnas de texto plano, para que "18:00" o "2026-10-05" no se conviertan en fechas.
-  columnasTexto.forEach(c => hoja.getRange(1, c, 1000, 1).setNumberFormat('@'));
+  // Se aplica también a pestañas que ya existían, así repara una planilla armada a mano.
+  columnasTexto.forEach(c => hoja.getRange(1, c, hoja.getMaxRows(), 1).setNumberFormat('@'));
+  if (!nueva) return;
   hoja.getRange(1, 1, 1, encabezados.length).setValues([encabezados]).setFontWeight('bold');
   if (filas.length) hoja.getRange(2, 1, filas.length, encabezados.length).setValues(filas);
   hoja.setFrozenRows(1);

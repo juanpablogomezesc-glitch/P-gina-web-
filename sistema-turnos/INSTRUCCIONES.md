@@ -5,10 +5,11 @@ Los turnos se guardan en una planilla de Google que es tuya. La página de turno
 
 Lleva unos 10 minutos y se hace una sola vez.
 
-## 1. Crear la planilla
+## 1. La planilla
 
-1. Entrá a [sheets.google.com](https://sheets.google.com) y creá una planilla en blanco.
-2. Ponele un nombre, por ejemplo **Turnos · JP Entrenamiento**.
+Si Claude ya creó la planilla en tu Drive, se llama **Turnos · JP Entrenamiento**: abrila y seguí con el
+paso 2. Si no, entrá a [sheets.google.com](https://sheets.google.com), creá una planilla en blanco y
+ponele ese nombre.
 
 ## 2. Pegar el código
 
@@ -25,7 +26,9 @@ Lleva unos 10 minutos y se hace una sola vez.
    - Va a decir *"Google no verificó esta app"*. Es normal: la app es tuya y no está publicada.
      Tocá **Configuración avanzada** → **Ir a … (no seguro)** → **Permitir**.
    - Los permisos son para leer y escribir en esta planilla y mandar mails desde tu cuenta.
-3. Volvé a la planilla: vas a ver cuatro pestañas nuevas.
+3. Volvé a la planilla: vas a ver cuatro pestañas nuevas (Horarios, Días sin clases, Reservas y
+   Configuración). La pestaña vacía que venía de fábrica ("Hoja 1") la podés borrar.
+   Si volvés a ejecutar `configurar` más adelante no pasa nada: no pisa tus datos, solo repara los formatos.
 
 ## 4. Cargar tus horarios
 
