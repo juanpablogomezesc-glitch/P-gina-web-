@@ -25,7 +25,8 @@ en Instagram y en el grupo de WhatsApp. HTML y CSS, sin dependencias.
 ## Publicarlo gratis con GitHub Pages
 
 1. En GitHub, andá a **Settings → Pages**.
-2. En *Source* elegí la rama `main` y la carpeta `/ (root)`.
+2. En *Source* elegí **Deploy from a branch**, la rama `claude/crear-pagina-web-lvrwk8` (es la rama
+   principal de este repositorio) y la carpeta `/ (root)`.
 3. En unos minutos el sitio queda en
    `https://juanpablogomezesc-glitch.github.io/P-gina-web-/` y cada artículo en
    `.../articulos/nombre.html`, listo para compartir por WhatsApp o Instagram.

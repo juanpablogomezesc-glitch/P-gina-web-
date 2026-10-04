@@ -43,7 +43,8 @@ Lleva unos 10 minutos y se hace una sola vez.
 2. En el engranaje de "Tipo", elegí **Aplicación web**.
 3. Completá:
    - **Ejecutar como**: Yo
-   - **Quién tiene acceso**: Cualquier usuario
+   - **Quién tiene acceso**: **Cualquier usuario** (la opción que NO pide iniciar sesión con Google).
+     Si elegís la de "Cualquier usuario con cuenta de Google", tus alumnos no van a poder reservar.
 4. Tocá **Implementar** y copiá la **URL de la aplicación web** (termina en `/exec`).
 5. Pasale esa URL a Claude para conectarla con la página.
 
@@ -51,6 +52,7 @@ Lleva unos 10 minutos y se hace una sola vez.
 
 En la pestaña **Configuración**, en *Página de turnos (URL)*, pegá la dirección de tu página de
 turnos (por ejemplo `https://juanpablogomezesc-glitch.github.io/P-gina-web-/turnos.html`).
+Para publicar la página: en GitHub, **Settings → Pages → Deploy from a branch → rama `claude/crear-pagina-web-lvrwk8` → `/ (root)` → Save**.
 Con eso, el mail de confirmación incluye el enlace para cancelar.
 
 ---
