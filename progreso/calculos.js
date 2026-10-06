@@ -8,6 +8,10 @@
   const MAX_REPS_ESTIMABLES = 10; // más de 10 repeticiones: la fórmula pierde precisión, no se usa
   const DIA_MS = 24 * 60 * 60 * 1000;
 
+  /** Para comparar nombres sin importar mayúsculas, tildes ni espacios de más. */
+  const clave = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const es = (s, ejercicio) => clave(s.ejercicio) === clave(ejercicio);
+
   const aFecha = iso => new Date(iso + 'T00:00:00Z');
   const aIso = d => d.toISOString().slice(0, 10);
 
@@ -33,7 +37,7 @@
   /** Mejor 1RM estimado de cada semana, para un ejercicio. Devuelve [{ semana, valor }] en orden. */
   function rmPorSemana(series, ejercicio) {
     const porSemana = new Map();
-    series.filter(s => s.ejercicio === ejercicio).forEach(s => {
+    series.filter(s => es(s, ejercicio)).forEach(s => {
       const rm = epley(s.kg, s.reps);
       if (rm === null) return;
       const semana = lunes(s.fecha);
@@ -45,7 +49,7 @@
   /** Récord personal: el mayor peso levantado (a igualdad, el de más repeticiones; a igualdad, el más reciente). */
   function recordPersonal(series, ejercicio) {
     let mejor = null;
-    series.filter(s => s.ejercicio === ejercicio && s.kg > 0 && s.reps >= 1).forEach(s => {
+    series.filter(s => es(s, ejercicio) && s.kg > 0 && s.reps >= 1).forEach(s => {
       if (!mejor || s.kg > mejor.kg || (s.kg === mejor.kg && (s.reps > mejor.reps || (s.reps === mejor.reps && s.fecha > mejor.fecha)))) mejor = s;
     });
     return mejor && { kg: mejor.kg, reps: mejor.reps, fecha: mejor.fecha };
@@ -56,7 +60,7 @@
     const resultado = {};
     cantidades.forEach(n => {
       let mejor = null;
-      series.filter(s => s.ejercicio === ejercicio && s.reps >= n && s.kg > 0).forEach(s => {
+      series.filter(s => es(s, ejercicio) && s.reps >= n && s.kg > 0).forEach(s => {
         if (!mejor || s.kg > mejor.kg || (s.kg === mejor.kg && s.fecha > mejor.fecha)) mejor = s;
       });
       resultado[n] = mejor && { kg: mejor.kg, fecha: mejor.fecha };

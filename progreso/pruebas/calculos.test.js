@@ -80,3 +80,8 @@ test('el período "últimas N semanas" termina en la última fecha con datos', (
   assert.equal(P.desdeUltimasSemanas(series, null), null);      // "todo": sin límite
   assert.equal(P.filtrar(series, '2026-09-21').length, 1);
 });
+
+test('el nombre del ejercicio se compara sin mayúsculas, tildes ni espacios de más', () => {
+  const series = [{ fecha: '2026-01-05', ejercicio: 'Sentadilla  Búlgara C/M ', kg: 40, reps: 5 }];
+  assert.strictEqual(P.recordPersonal(series, 'sentadilla bulgara c/m').kg, 40);
+});
