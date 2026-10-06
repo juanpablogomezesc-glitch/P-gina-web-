@@ -111,3 +111,18 @@ Los cambios en la planilla se ven en la página al instante, sin volver a public
 2. **Implementar → Gestionar implementaciones → lápiz → Versión: Nueva versión → Implementar.**
    La dirección `/exec` no cambia.
 3. Si el código pide un permiso nuevo o más acotado, Google te va a pedir autorizar de nuevo. Aceptá.
+
+---
+
+## Si no llegan los mails de confirmación
+
+1. En Apps Script, elegí la función **probarMail** y tocá **Ejecutar**. Te manda un mail de prueba a tu casilla.
+   Si Google pide permisos, aceptalos (es el permiso de "enviar mails").
+2. Si falla, el motivo exacto aparece abajo, en el **Registro de ejecución**.
+3. Para ver qué pasó en reservas anteriores, abrí **Ejecuciones** (ícono de lista, menú izquierdo).
+   Ahí aparece cada reserva; si el mail falló, el motivo está en el registro.
+4. Revisá la carpeta de **spam** del mail con el que se reservó.
+5. Después de autorizar, **actualizá la implementación** (Implementar → Gestionar implementaciones → lápiz →
+   Nueva versión → Implementar). Un permiso nuevo hay que autorizarlo antes de implementar.
+
+Si el mail no puede salir, la página ahora lo dice y le muestra al alumno su código de reserva.

@@ -49,6 +49,7 @@ function cargar({ ahora }) {
   const hojas = {};
   const mails = [];
   let cuota = 100;
+  let fallaMail = false;
   const ss = {
     setSpreadsheetTimeZone() {},
     getSheetByName: n => hojas[n] || null,
@@ -58,7 +59,7 @@ function cargar({ ahora }) {
     console,
     SpreadsheetApp: { getActiveSpreadsheet: () => ss, flush() {} },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-    MailApp: { sendEmail: m => mails.push(m), getRemainingDailyQuota: () => cuota },
+    MailApp: { sendEmail: m => { if (fallaMail) throw new Error('Sin permiso para enviar mails'); mails.push(m); }, getRemainingDailyQuota: () => cuota },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'juanpablo@ejemplo.com' }) },
     ContentService: {
       MimeType: { JSON: 'json' },
@@ -89,6 +90,7 @@ function cargar({ ahora }) {
     hojas, mails,
     configurar: api.configurar,
     setCuota: n => { cuota = n; },
+    setFallaMail: v => { fallaMail = v; },
     moverReloj: iso => { reloj = new Date(iso); },
     get: params => JSON.parse(api.doGet({ parameter: params }).texto),
     post: datos => JSON.parse(api.doPost({ postData: { contents: JSON.stringify(datos) } }).texto),

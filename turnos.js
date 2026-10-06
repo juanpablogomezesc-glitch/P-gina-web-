@@ -140,9 +140,11 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbx59JuvWlOSDbwXjsnlMu6G
     if (!r.ok) return errorFormulario(r.error);
 
     $('formulario').hidden = true;
-    $('exito-detalle').textContent =
-      `${elegido.etiqueta} · ${elegido.hora} · ${datos.lugares === 1 ? '1 lugar' : `${datos.lugares} lugares`}. ` +
-      `Te mandamos la confirmación a ${datos.email}. Si no la ves, revisá la carpeta de spam.`;
+    const detalle = `${elegido.etiqueta} · ${elegido.hora} · ${datos.lugares === 1 ? '1 lugar' : `${datos.lugares} lugares`}. `;
+    // r.mail es false solo cuando el sistema no pudo mandar el mail (en el modo de prueba no existe el dato).
+    $('exito-detalle').textContent = r.mail === false
+      ? detalle + `Tu lugar está reservado, pero no pudimos enviarte el mail de confirmación. Anotá tu código: ${r.id}.`
+      : detalle + `Te mandamos la confirmación a ${datos.email}. Si no la ves, revisá la carpeta de spam.`;
     $('exito').hidden = false;
     $('exito').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });

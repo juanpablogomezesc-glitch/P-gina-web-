@@ -197,3 +197,13 @@ test('si queda poca cuota de mails, guarda la reserva pero no manda confirmacion
   assert.equal(g.mails.length, 0); // pero no se gastó cuota en mails
   assert.equal(g.hojas['Reservas'].datos.length, 2);
 });
+
+test('la respuesta avisa si el mail salió o no', () => {
+  const g = nuevo();
+  assert.equal(g.post(alumno()).mail, true);
+  g.setFallaMail(true);
+  const r = g.post(alumno({ email: 'beto@ejemplo.com' }));
+  assert.equal(r.ok, true);   // la reserva se guarda igual
+  assert.equal(r.mail, false); // pero se avisa que el mail no salió
+  assert.equal(g.hojas['Reservas'].datos.length, 3);
+});

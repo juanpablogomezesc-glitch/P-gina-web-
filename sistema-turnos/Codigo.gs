@@ -224,14 +224,14 @@ function reservar_(d) {
     lock.releaseLock();
   }
 
-  enviarConfirmacion_(reserva, cfg);
+  const mailEnviado = enviarConfirmacion_(reserva, cfg);
   if (cfg.avisarme && cfg.miEmail) {
     avisar_(cfg, `Nueva reserva: ${reserva.nombre} ${reserva.apellido}`,
       `${reserva.nombre} ${reserva.apellido} (${reserva.email}) reservó ${textoLugares_(lugares)} ` +
       `el ${etiquetaFecha_(fecha)} a las ${hora}.`);
   }
 
-  return { ok: true, id: reserva.id, fecha, hora, lugares, etiqueta: etiquetaFecha_(fecha), email };
+  return { ok: true, id: reserva.id, fecha, hora, lugares, etiqueta: etiquetaFecha_(fecha), email, mail: mailEnviado };
 }
 
 /** Frena el uso masivo: muchas reservas seguidas, de una persona o entre todas. */
@@ -325,7 +325,7 @@ function enviarConfirmacion_(r, cfg) {
     ? `<p>Si no podés ir, cancelá desde este enlace (hasta ${textoHoras_(cfg.horasCancelar)} antes):<br>` +
       `<a href="${enlace}" style="color:#ff6b1a">Cancelar mi turno</a></p>`
     : `<p>Si no podés ir, respondé este mail hasta ${textoHoras_(cfg.horasCancelar)} antes de la clase.</p>`;
-  enviar_(cfg, r.email, `Turno confirmado: ${etiquetaFecha_(r.fecha)} · ${r.hora}`,
+  return enviar_(cfg, r.email, `Turno confirmado: ${etiquetaFecha_(r.fecha)} · ${r.hora}`,
     `<p>¡Hola ${escapar_(r.nombre)}!</p>` +
     `<p>Tu turno quedó confirmado:</p>` +
     `<p style="font-size:18px"><strong>${etiquetaFecha_(r.fecha)} · ${r.hora}</strong><br>${textoLugares_(r.lugares)}</p>` +
@@ -353,15 +353,29 @@ function enviar_(cfg, para, asunto, html) {
     const esAviso = cfg.miEmail && para === cfg.miEmail;
     if (!esAviso && MailApp.getRemainingDailyQuota() <= MAILS_RESERVADOS_PARA_VOS) {
       console.error('Cuota diaria de mails casi agotada: no se envió el mail a ' + para);
-      return;
+      return false;
     }
     const opciones = { to: para, subject: asunto, htmlBody: html, name: cfg.nombre };
     if (cfg.miEmail && para !== cfg.miEmail) opciones.replyTo = cfg.miEmail;
     MailApp.sendEmail(opciones);
+    return true;
   } catch (err) {
     // La reserva ya quedó guardada; un mail que falla no la deshace.
+    // El motivo queda en "Ejecuciones" (menú izquierdo de Apps Script) y la página le avisa al alumno.
     console.error('No se pudo enviar el mail a ' + para, err);
+    return false;
   }
+}
+
+/**
+ * Para vos: ejecutalo desde el editor (elegí "probarMail" y tocá Ejecutar).
+ * Te manda un mail de prueba a tu casilla. Si Google pide permisos, aceptalos.
+ * Si falla, el motivo exacto aparece abajo, en el registro de ejecución.
+ */
+function probarMail() {
+  const destino = Session.getEffectiveUser().getEmail();
+  MailApp.sendEmail({ to: destino, subject: 'Prueba del turnero', htmlBody: '<p>Si leés esto, los mails del turnero funcionan.</p>', name: 'Turnos JP' });
+  console.log('Mail de prueba enviado a ' + destino + '. Mails que todavía se pueden mandar hoy: ' + MailApp.getRemainingDailyQuota());
 }
 
 /* ───────────────────────── Lectura de la planilla ───────────────────────── */
