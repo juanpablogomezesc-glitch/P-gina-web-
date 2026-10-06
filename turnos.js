@@ -1,7 +1,7 @@
 // Página de turnos. Habla con la planilla de Google a través de la app web de Apps Script.
 // Pegá entre las comillas la URL que te da Google al implementar (termina en /exec).
 // Mientras esté vacía, la página funciona en modo de prueba con horarios de ejemplo.
-const API_URL = '';
+const API_URL = 'https://script.google.com/macros/s/AKfycby25sQrsSZtGqvekpX5dW8GE3ULCEDs1V6q337Gy9hZ5djaukQrrwjOJhvZi0C-cLrn/exec';
 
 (() => {
   const url = window.TURNOS_API_URL || API_URL;
