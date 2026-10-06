@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0d0d">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <title>Mi progreso · Juan Pablo Gómez</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="progreso/progreso.css">
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="nav">
+    <a href="index.html" class="logo">JP<span>·</span><span class="logo-largo">Entrenamiento</span></a>
+    <nav>
+      <a href="index.html#articulos">Artículos</a>
+      <a href="turnos.html" class="nav-cta">Turnos</a>
+      <a href="index.html#contacto">Contacto</a>
+    </nav>
+  </header>
+
+  <main id="contenido" class="progreso">
+    <p class="aviso-prueba">Vista de ejemplo: los números son de prueba, no son de ningún alumno.</p>
+    <span class="etiqueta">Mi progreso</span>
+    <h1>Tu evolución</h1>
+
+    <div class="filtros" role="group" aria-label="Período">
+      <button type="button" data-semanas="8" aria-pressed="false">8 semanas</button>
+      <button type="button" data-semanas="26" aria-pressed="false">6 meses</button>
+      <button type="button" data-semanas="0" aria-pressed="true">Todo</button>
+    </div>
+
+    <section class="pr-resumen" id="pr-resumen" aria-label="Resumen"></section>
+
+    <h2>1RM estimado por ejercicio</h2>
+    <p class="nota">Mejor serie de cada semana, calculada con la fórmula de Epley. Es una estimación, no un máximo probado.</p>
+    <section class="pr-graficos" id="pr-graficos"></section>
+
+    <h2>Récords y mejores marcas</h2>
+    <div class="tabla-caja"><table id="tabla-records"></table></div>
+
+    <h2>Peso corporal</h2>
+    <section class="pr-graficos una" id="grafico-peso"></section>
+
+    <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+  </main>
+
+  <script src="progreso/calculos.js"></script>
+  <script src="progreso/progreso.js"></script>
+</body>
+</html>

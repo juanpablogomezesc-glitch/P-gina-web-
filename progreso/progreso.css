@@ -1,0 +1,35 @@
+.progreso { max-width: 1000px; margin: 0 auto; padding: 110px 16px 80px; }
+.progreso h1 { margin: 6px 0 18px; }
+.progreso h2 { font-size: 1.3rem; margin: 40px 0 6px; }
+.progreso .nota { color: var(--suave); font-size: .9rem; margin-bottom: 14px; max-width: 60ch; }
+.progreso .aviso-prueba { margin-bottom: 18px; }
+.filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+.filtros button { font: 600 .85rem var(--fuente-texto); color: var(--suave); background: none; border: 1px solid var(--borde); border-radius: 999px; padding: 9px 16px; min-height: 40px; cursor: pointer; transition: background-color .15s var(--ease-out), color .15s var(--ease-out); }
+.filtros button[aria-pressed="true"] { background: var(--acento); border-color: var(--acento); color: #0d0d0d; }
+.filtros button:focus-visible, .tabla-caja:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.pr-resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.dato { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 14px 16px; }
+.dato .rotulo { color: var(--suave); font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
+.dato .valor { font: 700 2rem/1.1 var(--fuente-titulos); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.dato .valor small { font-size: .9rem; color: var(--suave); font-weight: 500; }
+.dato .delta { font-size: .8rem; color: var(--suave); margin-top: 4px; }
+.dato .delta.sube { color: #7ed48b; }
+.pr-graficos { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.pr-graficos.una { grid-template-columns: minmax(0, 560px); }
+.grafico { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 14px 14px 8px; }
+.grafico header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.grafico h3 { font-size: 1rem; }
+.grafico .actual { font: 700 1.3rem var(--fuente-titulos); font-variant-numeric: tabular-nums; }
+.grafico svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+.grafico .vacio { color: var(--suave); padding: 40px 0; text-align: center; font-size: .9rem; }
+.tabla-caja { overflow-x: auto; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; }
+.tabla-caja table { width: 100%; border-collapse: collapse; font-size: .92rem; font-variant-numeric: tabular-nums; }
+.tabla-caja th, .tabla-caja td { padding: 11px 14px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--borde); }
+.tabla-caja th:first-child, .tabla-caja td:first-child { text-align: left; }
+.tabla-caja th { color: var(--suave); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; }
+.tabla-caja tr:last-child td { border-bottom: 0; }
+.tabla-caja td small { display: block; color: var(--suave); font-size: .72rem; }
+.tooltip { position: fixed; z-index: 20; pointer-events: none; background: #262626; border: 1px solid var(--borde); border-radius: 8px; padding: 8px 10px; font-size: .82rem; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+.tooltip b { font-variant-numeric: tabular-nums; }
+.tooltip span { color: var(--suave); display: block; font-size: .75rem; }
+.progreso section { padding: 0; margin: 0; max-width: none; }
