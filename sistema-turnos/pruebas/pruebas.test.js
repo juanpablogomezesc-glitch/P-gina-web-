@@ -212,38 +212,58 @@ test('la respuesta avisa si el mail salió o no', () => {
 
 const eventos = g => g.calendarios.flatMap(c => c.eventos);
 
-test('al reservar se crea el calendario y un evento con el nombre de quien va', () => {
+const titulos = g => eventos(g).map(e => e.titulo).sort();
+
+test('al reservar se crea el calendario con una casilla con el nombre de la persona', () => {
   const g = nuevo();
-  assert.equal(g.post(alumno({ lugares: 2 })).ok, true);
+  assert.equal(g.post(alumno()).ok, true);
   assert.equal(g.calendarios.length, 1);
   assert.equal(g.calendarios[0].nombre, 'Turnos JP');
+  assert.deepEqual(titulos(g), ['Ana Pérez']);
   const [ev] = eventos(g);
-  assert.equal(ev.titulo, 'Ana Pérez'); // solo el nombre, sin cantidad de lugares
-  assert.equal(ev.desc, 'Ana Pérez');
   assert.equal(ev.inicio.toISOString(), '2026-10-05T21:00:00.000Z'); // 18:00 en Argentina
   assert.equal(ev.fin.toISOString(), '2026-10-05T22:00:00.000Z');   // dura 60 minutos
   assert.equal(ev.getTag('turno'), '2026-10-05 18:00');
 });
 
-test('varias reservas del mismo horario comparten UN evento', () => {
+test('cada persona es una casilla distinta y si reservó varios lugares lo dice al lado', () => {
   const g = nuevo();
   g.post(alumno({ lugares: 2 }));
   g.post(alumno({ nombre: 'Beto', apellido: 'Gómez', email: 'beto@ejemplo.com' }));
-  assert.equal(eventos(g).length, 1);
-  assert.equal(eventos(g)[0].titulo, 'Ana Pérez, Beto Gómez');
-  g.post(alumno({ fecha: '2026-10-05', hora: '19:00', email: 'caro@ejemplo.com' }));
-  assert.equal(eventos(g).length, 2); // otro horario, otro evento
+  g.post(alumno({ nombre: 'Caro', apellido: 'Díaz', email: 'caro@ejemplo.com' }));
+  assert.equal(eventos(g).length, 3);
+  assert.deepEqual(titulos(g), ['Ana Pérez (2)', 'Beto Gómez', 'Caro Díaz']);
+  g.post(alumno({ hora: '19:00', email: 'dani@ejemplo.com', nombre: 'Dani', apellido: 'Ruiz' }));
+  assert.equal(eventos(g).length, 4); // otro horario, su propia casilla
 });
 
-test('al cancelar se actualiza el evento y, si no queda nadie, se borra', () => {
+test('si la misma persona reserva otra vez en el mismo horario, se actualiza su casilla', () => {
   const g = nuevo();
-  const a = g.post(alumno());
+  g.post(alumno());
+  g.post(alumno({ lugares: 2 })); // ahora tiene 3 lugares en total, en dos reservas
+  assert.equal(eventos(g).length, 2); // una casilla por reserva
+  assert.deepEqual(titulos(g), ['Ana Pérez', 'Ana Pérez (2)']);
+});
+
+test('al cancelar se borra solo la casilla de esa reserva', () => {
+  const g = nuevo();
+  const a = g.post(alumno({ lugares: 2 }));
   const b = g.post(alumno({ nombre: 'Beto', apellido: 'Gómez', email: 'beto@ejemplo.com' }));
   const token = id => g.hojas['Reservas'].datos.find(f => f[0] === id)[9];
   g.post({ accion: 'cancelar', id: a.id, token: token(a.id) });
-  assert.equal(eventos(g)[0].titulo, 'Beto Gómez');
+  assert.deepEqual(titulos(g), ['Beto Gómez']);
   g.post({ accion: 'cancelar', id: b.id, token: token(b.id) });
   assert.equal(eventos(g).length, 0);
+});
+
+test('las casillas de formatos anteriores se reemplazan sin duplicar', () => {
+  const g = nuevo();
+  g.post(alumno());
+  const viejo = g.calendarios[0].createEvent('2/4 · Ana Pérez, Beto Gómez', new Date('2026-10-05T21:00:00Z'), new Date('2026-10-05T22:00:00Z'));
+  viejo.setTag('turno', '2026-10-05 18:00'); // tiene la marca del sistema pero no la de reserva
+  g.post(alumno({ nombre: 'Beto', apellido: 'Gómez', email: 'beto@ejemplo.com' }));
+  assert.equal(viejo.borrado, true);
+  assert.deepEqual(titulos(g), ['Ana Pérez', 'Beto Gómez']);
 });
 
 test('no toca eventos ajenos ni usa el calendario si está desactivado', () => {

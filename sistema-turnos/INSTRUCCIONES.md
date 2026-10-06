@@ -132,13 +132,15 @@ Si el mail no puede salir, la página ahora lo dice y le muestra al alumno su c�
 ## Google Calendar: las clases en tu calendario
 
 **Qué hace:** crea un calendario propio llamado **Turnos JP** (aparece a la izquierda en Google Calendar,
-en "Mis calendarios") y, por cada horario con reservas, **un solo evento** con la lista de quienes van:
+en "Mis calendarios") y, por cada persona que reserva, **una casilla con su nombre** a la hora de la clase.
+Las casillas de un mismo horario se ven una al lado de la otra, así contando casillas sabés cuántos van:
 
-> 18:00 · **Ana Pérez, Beto Gómez**
+> 18:00 · **Ana Pérez (2)** · **Beto Gómez** · **Caro Díaz**
 
-Se actualiza solo cuando alguien reserva o cancela, y se borra si ya no queda nadie anotado.
-Los alumnos, además, reciben en su mail un enlace **"Agregar a mi Google Calendar"** (usa su propio
-calendario; no necesita ningún permiso tuyo).
+- Si una persona reservó más de un lugar, lo dice al lado del nombre: **Ana Pérez (2)**.
+- La casilla se actualiza o desaparece sola cuando alguien cancela.
+- Los alumnos, además, reciben en su mail un enlace **"Agregar a mi Google Calendar"** (usa su propio
+  calendario; no necesita ningún permiso tuyo).
 
 **Cómo activarlo (una sola vez):**
 1. Pegá el código nuevo en Apps Script y guardá.
@@ -159,7 +161,7 @@ calendario; no necesita ningún permiso tuyo).
 **Sobre el permiso que pide Google (importante):** el permiso de calendario de Google se describe como
 *"ver, editar, compartir y eliminar todos los calendarios a los que podés acceder"*. Es el único que Google
 ofrece para esto: no se puede limitar a un solo calendario. El código solo usa el calendario **Turnos JP**
-y solo borra eventos que él mismo creó (los reconoce por una marca). Podés verificarlo: en `Codigo.gs`
+y solo borra casillas que él mismo creó (las reconoce por una marca). Podés verificarlo: en `Codigo.gs`
 buscá `CalendarApp`; aparece solo en la sección "Google Calendar".
 No agrega a los alumnos como invitados (así no ven los mails de los demás ni les llegan invitaciones),
 y en el evento solo figura el nombre de cada persona, no mails ni teléfonos ni cantidad de lugares.

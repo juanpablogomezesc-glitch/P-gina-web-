@@ -333,8 +333,8 @@ function cancelar_(id, token) {
 /* ───────────────────────── Google Calendar ───────────────────────── */
 
 /**
- * Deja al día el calendario para UNA clase: un solo evento por horario, con quiénes van.
- * Título: los nombres de quienes van ("Ana Pérez, Beto Gómez"). Si ya no queda nadie anotado, el evento se borra.
+ * Deja al día el calendario para UNA clase: una casilla (evento) por persona anotada, con su nombre.
+ * La casilla de una reserva cancelada se borra. Si ya no queda nadie anotado, no queda ninguna.
  * Solo toca los eventos que creó este sistema (los reconoce por una marca) y solo en su propio calendario.
  */
 function sincronizarCalendario_(cfg, fecha, hora, lanzarError) {
@@ -347,21 +347,27 @@ function sincronizarCalendario_(cfg, fecha, hora, lanzarError) {
     const eventos = calendario.getEvents(inicio, fin).filter(e => e.getTag('turno') === marca);
     const activas = leerReservas_().filter(r => r.estado === CONFIRMADA && r.fecha === fecha && r.hora === hora);
 
-    if (!activas.length) { eventos.forEach(e => e.deleteEvent()); return; }
+    // Una casilla por persona, con su nombre. Si reservó más de un lugar, lo dice al lado: "Ana Pérez (2)".
+    const deseados = activas.map(r => ({
+      clave: r.id,
+      titulo: `${r.nombre} ${r.apellido}${r.lugares > 1 ? ` (${r.lugares})` : ''}`,
+    }));
 
-    const nombres = activas.map(r => `${r.nombre} ${r.apellido}`);
-    let titulo = nombres.join(', ');
-    if (titulo.length > 90) titulo = titulo.slice(0, 89) + '…';
-    const detalle = nombres.join('\n');
-
-    let evento = eventos[0];
-    if (!evento) {
-      evento = calendario.createEvent(titulo, inicio, fin);
-      evento.setTag('turno', marca);
-    }
-    evento.setTitle(titulo);
-    evento.setDescription(detalle);
-    eventos.slice(1).forEach(e => e.deleteEvent()); // por si alguna vez quedó repetido
+    // Casillas que ya existen, por reserva. Las que no tienen marca de reserva (formatos anteriores) o están repetidas se borran.
+    const existentes = {};
+    eventos.forEach(e => {
+      const k = e.getTag('reserva');
+      if (k && !existentes[k]) existentes[k] = e; else e.deleteEvent();
+    });
+    deseados.forEach(d => {
+      const evento = existentes[d.clave];
+      if (evento) { evento.setTitle(d.titulo); delete existentes[d.clave]; return; }
+      const nuevo = calendario.createEvent(d.titulo, inicio, fin);
+      nuevo.setTag('turno', marca);
+      nuevo.setTag('reserva', d.clave);
+    });
+    // Reservas canceladas: se borra su casilla
+    Object.keys(existentes).forEach(k => existentes[k].deleteEvent());
   } catch (err) {
     // La reserva ya quedó guardada: un problema con el calendario no la deshace.
     console.error('No se pudo actualizar el calendario', err);
