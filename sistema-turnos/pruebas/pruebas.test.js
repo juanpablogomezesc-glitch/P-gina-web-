@@ -207,3 +207,89 @@ test('la respuesta avisa si el mail salió o no', () => {
   assert.equal(r.mail, false); // pero se avisa que el mail no salió
   assert.equal(g.hojas['Reservas'].datos.length, 3);
 });
+
+/* ───────── Google Calendar ───────── */
+
+const eventos = g => g.calendarios.flatMap(c => c.eventos);
+
+test('al reservar se crea el calendario y un evento con quiénes van', () => {
+  const g = nuevo();
+  assert.equal(g.post(alumno({ lugares: 2 })).ok, true);
+  assert.equal(g.calendarios.length, 1);
+  assert.equal(g.calendarios[0].nombre, 'Turnos JP');
+  const [ev] = eventos(g);
+  assert.equal(ev.titulo, '2/4 · Ana Pérez (2)');
+  assert.match(ev.desc, /Lugares ocupados: 2 de 4/);
+  assert.equal(ev.inicio.toISOString(), '2026-10-05T21:00:00.000Z'); // 18:00 en Argentina
+  assert.equal(ev.fin.toISOString(), '2026-10-05T22:00:00.000Z');   // dura 60 minutos
+  assert.equal(ev.getTag('turno'), '2026-10-05 18:00');
+});
+
+test('varias reservas del mismo horario comparten UN evento', () => {
+  const g = nuevo();
+  g.post(alumno({ lugares: 2 }));
+  g.post(alumno({ nombre: 'Beto', apellido: 'Gómez', email: 'beto@ejemplo.com' }));
+  assert.equal(eventos(g).length, 1);
+  assert.equal(eventos(g)[0].titulo, '3/4 · Ana Pérez (2), Beto Gómez');
+  g.post(alumno({ fecha: '2026-10-05', hora: '19:00', email: 'caro@ejemplo.com' }));
+  assert.equal(eventos(g).length, 2); // otro horario, otro evento
+});
+
+test('al cancelar se actualiza el evento y, si no queda nadie, se borra', () => {
+  const g = nuevo();
+  const a = g.post(alumno());
+  const b = g.post(alumno({ nombre: 'Beto', apellido: 'Gómez', email: 'beto@ejemplo.com' }));
+  const token = id => g.hojas['Reservas'].datos.find(f => f[0] === id)[9];
+  g.post({ accion: 'cancelar', id: a.id, token: token(a.id) });
+  assert.equal(eventos(g)[0].titulo, '1/4 · Beto Gómez');
+  g.post({ accion: 'cancelar', id: b.id, token: token(b.id) });
+  assert.equal(eventos(g).length, 0);
+});
+
+test('no toca eventos ajenos ni usa el calendario si está desactivado', () => {
+  const g = nuevo();
+  g.hojas['Configuración'].datos.find(f => f[0] === 'Calendario de Google (nombre)')[1] = '';
+  assert.equal(g.post(alumno()).ok, true);
+  assert.equal(g.calendarios.length, 0);
+
+  const h = nuevo();
+  h.post(alumno()); // crea el calendario con su evento
+  const ajeno = h.calendarios[0].createEvent('Dentista', new Date('2026-10-05T21:00:00Z'), new Date('2026-10-05T22:00:00Z'));
+  h.post(alumno({ nombre: 'Beto', apellido: 'Gómez', email: 'beto@ejemplo.com' }));
+  assert.equal(ajeno.borrado, false);
+  assert.equal(ajeno.titulo, 'Dentista');
+});
+
+test('si el calendario falla (por ejemplo, falta el permiso), la reserva se guarda igual', () => {
+  const g = nuevo();
+  g.setFallaCalendario(true);
+  const r = g.post(alumno());
+  assert.equal(r.ok, true);
+  assert.equal(g.hojas['Reservas'].datos.length, 2);
+});
+
+test('sincronizarTodo arregla el calendario después de cambios hechos a mano en la planilla', () => {
+  const g = nuevo();
+  g.post(alumno());
+  g.hojas['Reservas'].datos[1][7] = 'Cancelada'; // la cancelaste a mano
+  g.sincronizarTodo();
+  assert.equal(eventos(g).length, 0);
+});
+
+test('un planilla de una versión anterior recibe las opciones nuevas sin perder las suyas', () => {
+  const g = nuevo();
+  const cfg = g.hojas['Configuración'];
+  cfg.datos.splice(cfg.datos.findIndex(f => f[0] === 'Calendario de Google (nombre)'), 2); // se van las dos filas nuevas
+  cfg.datos.find(f => f[0] === 'Días para adelante')[1] = 5;                              // y cambió un valor
+  g.configurar();
+  assert.ok(cfg.datos.some(f => f[0] === 'Calendario de Google (nombre)'));
+  assert.ok(cfg.datos.some(f => f[0] === 'Duración de la clase (minutos)'));
+  assert.equal(cfg.datos.find(f => f[0] === 'Días para adelante')[1], 5);
+});
+
+test('el mail incluye el enlace para agregar la clase al calendario del alumno', () => {
+  const g = nuevo();
+  g.post(alumno());
+  assert.match(g.mails[0].htmlBody, /calendar\.google\.com\/calendar\/render\?action=TEMPLATE/);
+  assert.match(g.mails[0].htmlBody, /dates=20261005T180000\/20261005T190000/);
+});

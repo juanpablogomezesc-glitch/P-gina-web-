@@ -50,6 +50,28 @@ function cargar({ ahora }) {
   const mails = [];
   let cuota = 100;
   let fallaMail = false;
+  let fallaCalendario = false;
+  const calendarios = [];
+  const crearCalendario = (nombre) => {
+    const eventos = [];
+    const cal = {
+      nombre, eventos,
+      getName: () => nombre,
+      createEvent(titulo, inicio, fin) {
+        if (fallaCalendario) throw new Error('Sin permiso para usar el calendario');
+        const ev = { titulo, desc: '', inicio, fin, tags: {}, borrado: false,
+          setTitle(x) { ev.titulo = x; }, setDescription(x) { ev.desc = x; },
+          setTag(k, v) { ev.tags[k] = v; }, getTag: k => ev.tags[k] || null,
+          deleteEvent() { ev.borrado = true; eventos.splice(eventos.indexOf(ev), 1); } };
+        eventos.push(ev); return ev;
+      },
+      getEvents(desde, hasta) {
+        if (fallaCalendario) throw new Error('Sin permiso para usar el calendario');
+        return eventos.filter(e => e.inicio < hasta && e.fin > desde);
+      },
+    };
+    return cal;
+  };
   const ss = {
     setSpreadsheetTimeZone() {},
     getSheetByName: n => hojas[n] || null,
@@ -59,6 +81,10 @@ function cargar({ ahora }) {
     console,
     SpreadsheetApp: { getActiveSpreadsheet: () => ss, flush() {} },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+    CalendarApp: {
+      getCalendarsByName: n => { if (fallaCalendario) throw new Error('Sin permiso para usar el calendario'); return calendarios.filter(c => c.nombre === n); },
+      createCalendar: (n) => { if (fallaCalendario) throw new Error('Sin permiso para usar el calendario'); const c = crearCalendario(n); calendarios.push(c); return c; },
+    },
     MailApp: { sendEmail: m => { if (fallaMail) throw new Error('Sin permiso para enviar mails'); mails.push(m); }, getRemainingDailyQuota: () => cuota },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'juanpablo@ejemplo.com' }) },
     ContentService: {
@@ -81,13 +107,15 @@ function cargar({ ahora }) {
   };
   vm.createContext(contexto);
   const codigo = fs.readFileSync(path.join(__dirname, '..', 'Codigo.gs'), 'utf8');
-  vm.runInContext(codigo + '\nthis.__api = { configurar, doGet, doPost, setAhora: f => { ahora_ = f; } };', contexto);
+  vm.runInContext(codigo + '\nthis.__api = { configurar, doGet, doPost, sincronizarTodo, setAhora: f => { ahora_ = f; } };', contexto);
   const api = contexto.__api;
   let reloj = new Date(ahora);
   api.setAhora(() => new Date(reloj.getTime()));
 
   return {
-    hojas, mails,
+    hojas, mails, calendarios,
+    setFallaCalendario: v => { fallaCalendario = v; },
+    sincronizarTodo: api.sincronizarTodo,
     configurar: api.configurar,
     setCuota: n => { cuota = n; },
     setFallaMail: v => { fallaMail = v; },

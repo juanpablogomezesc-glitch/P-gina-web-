@@ -126,3 +126,42 @@ Los cambios en la planilla se ven en la página al instante, sin volver a public
    Nueva versión → Implementar). Un permiso nuevo hay que autorizarlo antes de implementar.
 
 Si el mail no puede salir, la página ahora lo dice y le muestra al alumno su código de reserva.
+
+---
+
+## Google Calendar: las clases en tu calendario
+
+**Qué hace:** crea un calendario propio llamado **Turnos JP** (aparece a la izquierda en Google Calendar,
+en "Mis calendarios") y, por cada horario con reservas, **un solo evento** con la lista de quienes van:
+
+> 18:00 · **3/4 · Ana Pérez (2), Beto Gómez**
+
+Se actualiza solo cuando alguien reserva o cancela, y se borra si ya no queda nadie anotado.
+Los alumnos, además, reciben en su mail un enlace **"Agregar a mi Google Calendar"** (usa su propio
+calendario; no necesita ningún permiso tuyo).
+
+**Cómo activarlo (una sola vez):**
+1. Pegá el código nuevo en Apps Script y guardá.
+2. Elegí la función **`probarCalendario`** y tocá **Ejecutar**. Google va a pedir un permiso nuevo
+   (ver más abajo). Aceptalo. En el registro tiene que decir *Calendario listo*.
+3. Elegí **`configurar`** y tocá **Ejecutar** otra vez: agrega a la pestaña **Configuración** dos filas nuevas
+   ("Calendario de Google (nombre)" y "Duración de la clase (minutos)") sin tocar nada de lo que ya tenías.
+4. **Implementar → Gestionar implementaciones → lápiz → Nueva versión → Implementar.**
+
+**Opciones (pestaña Configuración):**
+- *Calendario de Google (nombre)*: dejalo vacío (o poné `No`) para no usar el calendario.
+  Si querés que las clases aparezcan en otro calendario tuyo, poné su nombre exacto.
+- *Duración de la clase (minutos)*: cuánto ocupa cada evento (por defecto 60).
+
+**Si cambiás reservas a mano en la planilla** (por ejemplo, un Estado a `Cancelada`): elegí la función
+**`sincronizarTodo`** y Ejecutar, y el calendario se vuelve a armar con lo que dice la planilla.
+
+**Sobre el permiso que pide Google (importante):** el permiso de calendario de Google se describe como
+*"ver, editar, compartir y eliminar todos los calendarios a los que podés acceder"*. Es el único que Google
+ofrece para esto: no se puede limitar a un solo calendario. El código solo usa el calendario **Turnos JP**
+y solo borra eventos que él mismo creó (los reconoce por una marca). Podés verificarlo: en `Codigo.gs`
+buscá `CalendarApp`; aparece solo en la sección "Google Calendar".
+No agrega a los alumnos como invitados (así no ven los mails de los demás ni les llegan invitaciones),
+y en el evento solo figuran nombre y cantidad de lugares, no mails ni teléfonos.
+Si no querés darle ese permiso, no ejecutes `probarCalendario` y poné la opción vacía: el turnero sigue
+funcionando igual, sin calendario.

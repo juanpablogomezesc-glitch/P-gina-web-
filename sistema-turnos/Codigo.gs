@@ -41,6 +41,8 @@ const OPCIONES = [
   ['urlPagina', 'Página de turnos (URL)', '', 'La dirección de la página de turnos. Se usa para el enlace de cancelación.'],
   ['avisarme', 'Avisarme cada reserva (Sí/No)', 'No', 'Si es Sí, te llega un mail con cada reserva y cancelación.'],
   ['miEmail', 'Mi email', '', 'Donde te llegan los avisos. Los alumnos también responden a esta dirección.'],
+  ['calendario', 'Calendario de Google (nombre)', 'Turnos JP', 'Calendario donde aparece cada clase con los nombres de quienes reservaron. Dejalo vacío (o poné No) para no usar Google Calendar.'],
+  ['duracion', 'Duración de la clase (minutos)', 60, 'Cuánto dura cada clase en el calendario.'],
 ];
 
 // Límites contra abuso (la dirección del sistema es pública: cualquiera puede intentar reservar).
@@ -74,6 +76,15 @@ function configurar() {
   const email = Session.getEffectiveUser().getEmail();
   crearHoja_(ss, HOJAS.CONFIG, ['Opción', 'Valor', 'Para qué sirve'],
     OPCIONES.map(([clave, texto, valor, ayuda]) => [texto, clave === 'miEmail' ? email : valor, ayuda]), [2]);
+  completarOpciones_();
+}
+
+/** Si la planilla es de una versión anterior, agrega al final las opciones nuevas (sin tocar las que ya tenés). */
+function completarOpciones_() {
+  const hoja = hoja_(HOJAS.CONFIG);
+  const existentes = filas_(HOJAS.CONFIG).map(f => String(f[0]).trim());
+  OPCIONES.filter(([, texto]) => !existentes.includes(texto))
+    .forEach(([, texto, valor, ayuda]) => hoja.appendRow([texto, valor, ayuda]));
 }
 
 function crearHoja_(ss, nombre, encabezados, filas, columnasTexto) {
@@ -220,6 +231,7 @@ function reservar_(d) {
       reserva.id, fecha, hora, lugares, seguro_(nombre), seguro_(apellido), seguro_(email), CONFIRMADA, new Date(ahora_().getTime()), reserva.token,
     ]);
     SpreadsheetApp.flush();
+    sincronizarCalendario_(cfg, fecha, hora);
   } finally {
     lock.releaseLock();
   }
@@ -305,6 +317,7 @@ function cancelar_(id, token) {
     }
     hoja_(HOJAS.RESERVAS).getRange(r.fila, COL.ESTADO + 1).setValue(CANCELADA);
     SpreadsheetApp.flush();
+    sincronizarCalendario_(cfg, r.fecha, r.hora);
   } finally {
     lock.releaseLock();
   }
@@ -315,6 +328,86 @@ function cancelar_(id, token) {
       `${r.nombre} ${r.apellido} canceló ${textoLugares_(r.lugares)} del ${etiquetaFecha_(r.fecha)} a las ${r.hora}.`);
   }
   return { ok: true };
+}
+
+/* ───────────────────────── Google Calendar ───────────────────────── */
+
+/**
+ * Deja al día el calendario para UNA clase: un solo evento por horario, con quiénes van.
+ * Título: "3/4 · Ana Pérez (2), Beto Gómez". Si ya no queda nadie anotado, el evento se borra.
+ * Solo toca los eventos que creó este sistema (los reconoce por una marca) y solo en su propio calendario.
+ */
+function sincronizarCalendario_(cfg, fecha, hora, lanzarError) {
+  if (!cfg.calendario) return;
+  try {
+    const calendario = obtenerCalendario_(cfg.calendario);
+    const inicio = new Date(inicioClase_(fecha, hora));
+    const fin = new Date(inicio.getTime() + cfg.duracion * 60 * 1000);
+    const marca = clave_(fecha, hora);
+    const eventos = calendario.getEvents(inicio, fin).filter(e => e.getTag('turno') === marca);
+    const activas = leerReservas_().filter(r => r.estado === CONFIRMADA && r.fecha === fecha && r.hora === hora);
+
+    if (!activas.length) { eventos.forEach(e => e.deleteEvent()); return; }
+
+    const turno = leerHorarios_().find(h => h.dia === diaDeLaSemana_(fecha) && h.hora === hora);
+    const total = activas.reduce((n, r) => n + r.lugares, 0);
+    const nombres = activas.map(r => `${r.nombre} ${r.apellido}${r.lugares > 1 ? ` (${r.lugares})` : ''}`);
+    let titulo = `${total}${turno ? '/' + turno.cupo : ''} · ${nombres.join(', ')}`;
+    if (titulo.length > 90) titulo = titulo.slice(0, 89) + '…';
+    const detalle = `Lugares ocupados: ${total}${turno ? ' de ' + turno.cupo : ''}\n` + nombres.map(n => '• ' + n).join('\n');
+
+    let evento = eventos[0];
+    if (!evento) {
+      evento = calendario.createEvent(titulo, inicio, fin);
+      evento.setTag('turno', marca);
+    }
+    evento.setTitle(titulo);
+    evento.setDescription(detalle);
+    eventos.slice(1).forEach(e => e.deleteEvent()); // por si alguna vez quedó repetido
+  } catch (err) {
+    // La reserva ya quedó guardada: un problema con el calendario no la deshace.
+    console.error('No se pudo actualizar el calendario', err);
+    if (lanzarError) throw err;
+  }
+}
+
+/** Busca el calendario por nombre y, si no existe, lo crea (aparece en "Mis calendarios" de Google Calendar). */
+function obtenerCalendario_(nombre) {
+  const existentes = CalendarApp.getCalendarsByName(nombre);
+  if (existentes.length) return existentes[0];
+  return CalendarApp.createCalendar(nombre, { summary: 'Clases reservadas desde la página de turnos', timeZone: ZONA_HORARIA });
+}
+
+/** Enlace para que el alumno agregue la clase a SU Google Calendar (no usa ningún permiso tuyo). */
+function agregarAlCalendario_(r, cfg) {
+  const inicio = new Date(inicioClase_(r.fecha, r.hora));
+  const fin = new Date(inicio.getTime() + cfg.duracion * 60 * 1000);
+  const fmt = d => formatear_(d, 'yyyyMMdd') + 'T' + formatear_(d, 'HHmm') + '00';
+  const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
+    '&amp;text=' + encodeURIComponent('Entrenamiento personal') +
+    '&amp;dates=' + fmt(inicio) + '/' + fmt(fin) +
+    '&amp;ctz=' + encodeURIComponent(ZONA_HORARIA);
+  return `<p><a href="${url}" style="color:#ff6b1a">Agregar a mi Google Calendar</a></p>`;
+}
+
+/**
+ * Para vos: vuelve a armar el calendario con lo que dice la planilla.
+ * Sirve si cambiaste reservas a mano (por ejemplo, un Estado a "Cancelada"). Elegí "sincronizarTodo" y Ejecutar.
+ */
+function sincronizarTodo() {
+  const cfg = leerConfig_();
+  if (!cfg.calendario) { console.log('El calendario está desactivado: la fila "Calendario de Google (nombre)" está vacía.'); return; }
+  const hoy = formatear_(ahora_(), 'yyyy-MM-dd');
+  const claves = new Set(leerReservas_().filter(r => r.fecha >= hoy).map(r => clave_(r.fecha, r.hora)));
+  claves.forEach(k => { const [f, h] = k.split(' '); sincronizarCalendario_(cfg, f, h, true); });
+  console.log('Calendario "' + cfg.calendario + '" al día: ' + claves.size + ' clases revisadas.');
+}
+
+/** Para vos: crea el calendario (si no existe) y te pide el permiso la primera vez. Elegí "probarCalendario" y Ejecutar. */
+function probarCalendario() {
+  const nombre = leerConfig_().calendario || 'Turnos JP';
+  const calendario = obtenerCalendario_(nombre);
+  console.log('Calendario listo: "' + calendario.getName() + '". Buscalo en Google Calendar, a la izquierda, en "Mis calendarios".');
 }
 
 /* ───────────────────────── Mails ───────────────────────── */
@@ -329,6 +422,7 @@ function enviarConfirmacion_(r, cfg) {
     `<p>¡Hola ${escapar_(r.nombre)}!</p>` +
     `<p>Tu turno quedó confirmado:</p>` +
     `<p style="font-size:18px"><strong>${etiquetaFecha_(r.fecha)} · ${r.hora}</strong><br>${textoLugares_(r.lugares)}</p>` +
+    agregarAlCalendario_(r, cfg) +
     cancelar +
     `<p>¡Te espero!<br>${escapar_(cfg.nombre)}</p>` +
     `<p style="color:#888;font-size:12px">Código de reserva: ${r.id}</p>`);
@@ -398,7 +492,12 @@ function leerConfig_() {
     const v = valores[texto];
     cfg[clave] = v === undefined || v === '' ? inicial : v;
   });
-  ['dias', 'horasReservar', 'horasCancelar', 'maxLugares'].forEach(c => { cfg[c] = Number(cfg[c]); });
+  ['dias', 'horasReservar', 'horasCancelar', 'maxLugares', 'duracion'].forEach(c => { cfg[c] = Number(cfg[c]); });
+  if (!(cfg.duracion > 0)) cfg.duracion = 60;
+  // Calendario: si la fila existe y está vacía (o dice No), significa "no usar Google Calendar".
+  if (Object.prototype.hasOwnProperty.call(valores, 'Calendario de Google (nombre)')) cfg.calendario = valores['Calendario de Google (nombre)'];
+  cfg.calendario = String(cfg.calendario || '').trim();
+  if (/^no$/i.test(cfg.calendario)) cfg.calendario = '';
   cfg.avisarme = /^s[ií]/i.test(String(cfg.avisarme));
   cfg.urlPagina = String(cfg.urlPagina || '').trim();
   cfg.miEmail = String(cfg.miEmail || '').trim();
