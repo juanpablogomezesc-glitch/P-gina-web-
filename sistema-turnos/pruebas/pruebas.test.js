@@ -212,14 +212,14 @@ test('la respuesta avisa si el mail salió o no', () => {
 
 const eventos = g => g.calendarios.flatMap(c => c.eventos);
 
-test('al reservar se crea el calendario y un evento con quiénes van', () => {
+test('al reservar se crea el calendario y un evento con el nombre de quien va', () => {
   const g = nuevo();
   assert.equal(g.post(alumno({ lugares: 2 })).ok, true);
   assert.equal(g.calendarios.length, 1);
   assert.equal(g.calendarios[0].nombre, 'Turnos JP');
   const [ev] = eventos(g);
-  assert.equal(ev.titulo, '2/4 · Ana Pérez (2)');
-  assert.match(ev.desc, /Lugares ocupados: 2 de 4/);
+  assert.equal(ev.titulo, 'Ana Pérez'); // solo el nombre, sin cantidad de lugares
+  assert.equal(ev.desc, 'Ana Pérez');
   assert.equal(ev.inicio.toISOString(), '2026-10-05T21:00:00.000Z'); // 18:00 en Argentina
   assert.equal(ev.fin.toISOString(), '2026-10-05T22:00:00.000Z');   // dura 60 minutos
   assert.equal(ev.getTag('turno'), '2026-10-05 18:00');
@@ -230,7 +230,7 @@ test('varias reservas del mismo horario comparten UN evento', () => {
   g.post(alumno({ lugares: 2 }));
   g.post(alumno({ nombre: 'Beto', apellido: 'Gómez', email: 'beto@ejemplo.com' }));
   assert.equal(eventos(g).length, 1);
-  assert.equal(eventos(g)[0].titulo, '3/4 · Ana Pérez (2), Beto Gómez');
+  assert.equal(eventos(g)[0].titulo, 'Ana Pérez, Beto Gómez');
   g.post(alumno({ fecha: '2026-10-05', hora: '19:00', email: 'caro@ejemplo.com' }));
   assert.equal(eventos(g).length, 2); // otro horario, otro evento
 });
@@ -241,7 +241,7 @@ test('al cancelar se actualiza el evento y, si no queda nadie, se borra', () => 
   const b = g.post(alumno({ nombre: 'Beto', apellido: 'Gómez', email: 'beto@ejemplo.com' }));
   const token = id => g.hojas['Reservas'].datos.find(f => f[0] === id)[9];
   g.post({ accion: 'cancelar', id: a.id, token: token(a.id) });
-  assert.equal(eventos(g)[0].titulo, '1/4 · Beto Gómez');
+  assert.equal(eventos(g)[0].titulo, 'Beto Gómez');
   g.post({ accion: 'cancelar', id: b.id, token: token(b.id) });
   assert.equal(eventos(g).length, 0);
 });

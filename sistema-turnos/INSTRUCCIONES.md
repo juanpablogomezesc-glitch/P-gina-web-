@@ -134,7 +134,7 @@ Si el mail no puede salir, la página ahora lo dice y le muestra al alumno su c�
 **Qué hace:** crea un calendario propio llamado **Turnos JP** (aparece a la izquierda en Google Calendar,
 en "Mis calendarios") y, por cada horario con reservas, **un solo evento** con la lista de quienes van:
 
-> 18:00 · **3/4 · Ana Pérez (2), Beto Gómez**
+> 18:00 · **Ana Pérez, Beto Gómez**
 
 Se actualiza solo cuando alguien reserva o cancela, y se borra si ya no queda nadie anotado.
 Los alumnos, además, reciben en su mail un enlace **"Agregar a mi Google Calendar"** (usa su propio
@@ -162,6 +162,6 @@ ofrece para esto: no se puede limitar a un solo calendario. El código solo usa 
 y solo borra eventos que él mismo creó (los reconoce por una marca). Podés verificarlo: en `Codigo.gs`
 buscá `CalendarApp`; aparece solo en la sección "Google Calendar".
 No agrega a los alumnos como invitados (así no ven los mails de los demás ni les llegan invitaciones),
-y en el evento solo figuran nombre y cantidad de lugares, no mails ni teléfonos.
+y en el evento solo figura el nombre de cada persona, no mails ni teléfonos ni cantidad de lugares.
 Si no querés darle ese permiso, no ejecutes `probarCalendario` y poné la opción vacía: el turnero sigue
 funcionando igual, sin calendario.

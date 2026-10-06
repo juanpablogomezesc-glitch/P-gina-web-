@@ -334,7 +334,7 @@ function cancelar_(id, token) {
 
 /**
  * Deja al día el calendario para UNA clase: un solo evento por horario, con quiénes van.
- * Título: "3/4 · Ana Pérez (2), Beto Gómez". Si ya no queda nadie anotado, el evento se borra.
+ * Título: los nombres de quienes van ("Ana Pérez, Beto Gómez"). Si ya no queda nadie anotado, el evento se borra.
  * Solo toca los eventos que creó este sistema (los reconoce por una marca) y solo en su propio calendario.
  */
 function sincronizarCalendario_(cfg, fecha, hora, lanzarError) {
@@ -349,12 +349,10 @@ function sincronizarCalendario_(cfg, fecha, hora, lanzarError) {
 
     if (!activas.length) { eventos.forEach(e => e.deleteEvent()); return; }
 
-    const turno = leerHorarios_().find(h => h.dia === diaDeLaSemana_(fecha) && h.hora === hora);
-    const total = activas.reduce((n, r) => n + r.lugares, 0);
-    const nombres = activas.map(r => `${r.nombre} ${r.apellido}${r.lugares > 1 ? ` (${r.lugares})` : ''}`);
-    let titulo = `${total}${turno ? '/' + turno.cupo : ''} · ${nombres.join(', ')}`;
+    const nombres = activas.map(r => `${r.nombre} ${r.apellido}`);
+    let titulo = nombres.join(', ');
     if (titulo.length > 90) titulo = titulo.slice(0, 89) + '…';
-    const detalle = `Lugares ocupados: ${total}${turno ? ' de ' + turno.cupo : ''}\n` + nombres.map(n => '• ' + n).join('\n');
+    const detalle = nombres.join('\n');
 
     let evento = eventos[0];
     if (!evento) {
