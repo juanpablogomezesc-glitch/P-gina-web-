@@ -45,3 +45,10 @@
   .tabla-caja th, .tabla-caja td { padding: 10px 8px; }
   .grafico h3 { font-size: .9rem; }
 }
+
+.pr-dias { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+@media (min-width: 760px) { .pr-dias { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); } }
+.progreso-barra { height: 10px; border-radius: 999px; background: #2e2e2e; margin-top: 12px; overflow: hidden; }
+.progreso-barra span { display: block; height: 100%; background: var(--acento); border-radius: 999px; }
+.pr-dias .vacio { color: var(--suave); }
+.pr-dias { align-items: start; }

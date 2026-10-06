@@ -92,7 +92,44 @@
   let peso = null;
   try { const g = parseFloat(localStorage.getItem('pr-peso')); if (g >= 30 && g <= 300) peso = g; } catch (e) {}
 
+  const OBJETIVO_MENSUAL = 12; // en la planilla real sale de la columna "Objetivo" de Control Mensual
+  const NOMBRE_MES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+  function dibujarDias() {
+    const cont = document.getElementById('dias-entrenados'); cont.innerHTML = '';
+    const meses = P.diasPorMes(datos.series.map(s => s.fecha)).slice(-6);
+    if (!meses.length) { cont.innerHTML = '<p class="vacio">Todavía no hay días registrados.</p>'; return; }
+    const actual = meses[meses.length - 1];
+    const pct = Math.min(100, Math.round(actual.cantidad / OBJETIVO_MENSUAL * 100));
+    const nombre = m => NOMBRE_MES[+m.slice(5) - 1];
+    const barra = document.createElement('div'); barra.className = 'dato barra-mes';
+    barra.innerHTML = `<div class="rotulo">${nombre(actual.mes)}</div><div class="valor">${actual.cantidad} <small>de ${OBJETIVO_MENSUAL} días</small></div>
+      <div class="progreso-barra" role="progressbar" aria-valuemin="0" aria-valuemax="${OBJETIVO_MENSUAL}" aria-valuenow="${Math.min(actual.cantidad, OBJETIVO_MENSUAL)}" aria-label="Días entrenados en ${nombre(actual.mes)}"><span style="width:${pct}%"></span></div>
+      <div class="delta">${actual.cantidad >= OBJETIVO_MENSUAL ? '¡Objetivo del mes cumplido!' : `Te faltan ${OBJETIVO_MENSUAL - actual.cantidad} para el objetivo`}</div>`;
+    cont.appendChild(barra);
+
+    const t = tarjeta('Por mes', `${meses.reduce((a, m) => a + m.cantidad, 0)} <small>días</small>`);
+    const W = 460, H = 180, m = { t: 14, r: 10, b: 26, l: 28 }, tope = Math.max(OBJETIVO_MENSUAL + 2, ...meses.map(x => x.cantidad));
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Días entrenados por mes: ' + meses.map(x => `${nombre(x.mes)} ${x.cantidad}`).join(', ') + `. Objetivo ${OBJETIVO_MENSUAL}.` });
+    const y = v => m.t + (1 - v / tope) * (H - m.t - m.b), paso = (W - m.l - m.r) / meses.length, ancho = Math.min(36, paso * 0.55);
+    el('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), stroke: '#2e2e2e' }, svg);
+    meses.forEach((x, i) => {
+      const cx = m.l + paso * (i + 0.5), alto = y(0) - y(x.cantidad);
+      const r = el('rect', { x: cx - ancho / 2, y: y(x.cantidad), width: ancho, height: Math.max(alto, 0), rx: 4, fill: '#ff6b1a' }, svg);
+      el('rect', { x: cx - ancho / 2, y: y(0) - 4, width: ancho, height: 4, fill: '#ff6b1a' }, svg); // base recta
+      const v = el('text', { x: cx, y: y(x.cantidad) - 5, 'text-anchor': 'middle', fill: '#f2f2f2', 'font-size': 11, 'font-weight': 600 }, svg); v.textContent = x.cantidad;
+      const l = el('text', { x: cx, y: H - 8, 'text-anchor': 'middle', fill: '#a3a3a3', 'font-size': 11 }, svg); l.textContent = nombre(x.mes).slice(0, 3);
+      const zona = el('rect', { x: cx - paso / 2, y: 0, width: paso, height: H, fill: 'transparent' }, svg);
+      const mostrar = () => { const b = r.getBoundingClientRect(); mostrarTip(`<b>${x.cantidad} días</b><span>${nombre(x.mes)} · objetivo ${OBJETIVO_MENSUAL}</span>`, b.left + b.width / 2, b.top); };
+      zona.addEventListener('pointerenter', mostrar); zona.addEventListener('pointerdown', mostrar); zona.addEventListener('pointerleave', ocultarTip);
+    });
+    el('line', { x1: m.l, x2: W - m.r, y1: y(OBJETIVO_MENSUAL), y2: y(OBJETIVO_MENSUAL), stroke: '#a3a3a3', 'stroke-dasharray': '4 4' }, svg);
+    const o = el('text', { x: m.l - 4, y: y(OBJETIVO_MENSUAL) + 4, 'text-anchor': 'end', fill: '#a3a3a3', 'font-size': 10 }, svg); o.textContent = OBJETIVO_MENSUAL;
+    t.appendChild(svg); cont.appendChild(t);
+  }
+
   function render() {
+    dibujarDias();
     const desde = P.desdeUltimasSemanas(datos.series, semanasFiltro);
     const series = P.filtrar(datos.series, desde, null);
 

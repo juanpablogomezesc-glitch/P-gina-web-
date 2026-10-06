@@ -85,3 +85,8 @@ test('el nombre del ejercicio se compara sin mayúsculas, tildes ni espacios de 
   const series = [{ fecha: '2026-01-05', ejercicio: 'Sentadilla  Búlgara C/M ', kg: 40, reps: 5 }];
   assert.strictEqual(P.recordPersonal(series, 'sentadilla bulgara c/m').kg, 40);
 });
+
+test('días entrenados por mes: ordenados y sin contar dos veces el mismo día', () => {
+  const r = P.diasPorMes(['2026-09-14', '2026-08-30', '2026-09-02', '2026-09-02']);
+  assert.deepStrictEqual(r, [{ mes: '2026-08', cantidad: 1 }, { mes: '2026-09', cantidad: 2 }]);
+});

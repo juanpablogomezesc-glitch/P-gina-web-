@@ -77,6 +77,13 @@
     return { semanas, actual, cambio, record: recordPersonal(series, ejercicio) };
   }
 
+  /** Días entrenados por mes: ['2026-09-01', ...] → [{ mes: '2026-09', cantidad }] en orden (los repetidos cuentan una vez). */
+  function diasPorMes(fechas) {
+    const cuenta = new Map();
+    [...new Set(fechas)].forEach(f => cuenta.set(f.slice(0, 7), (cuenta.get(f.slice(0, 7)) || 0) + 1));
+    return [...cuenta.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([mes, cantidad]) => ({ mes, cantidad }));
+  }
+
   const semanasEntrenadas = series => new Set(series.map(s => lunes(s.fecha))).size;
   const diasCompletados = series => new Set(series.map(s => s.fecha)).size;
 
@@ -96,5 +103,5 @@
   }
 
   return { EJERCICIOS, MAX_REPS_ESTIMABLES, epley, lunes, filtrar, rmPorSemana, recordPersonal, mejoresPorReps,
-    resumenEjercicio, semanasEntrenadas, diasCompletados, resumenPeso, desdeUltimasSemanas };
+    resumenEjercicio, diasPorMes, semanasEntrenadas, diasCompletados, resumenPeso, desdeUltimasSemanas };
 });
