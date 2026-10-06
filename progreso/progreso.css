@@ -33,3 +33,15 @@
 .tooltip b { font-variant-numeric: tabular-nums; }
 .tooltip span { color: var(--suave); display: block; font-size: .75rem; }
 .progreso section { padding: 0; margin: 0; max-width: none; }
+.pr-controles { margin: 26px 0 14px; display: grid; gap: 16px; }
+.campo-peso label { display: block; font-weight: 600; margin-bottom: 6px; }
+.campo-peso input { width: 160px; max-width: 100%; font: 600 1.1rem var(--fuente-texto); color: var(--texto); background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 8px; padding: 10px 12px; min-height: 44px; }
+.campo-peso input:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-color: var(--acento); }
+.campo-peso .nota { margin: 6px 0 0; }
+#detalle { margin-top: 18px; }
+#detalle h2 { margin-top: 28px; }
+.dato .valor small { white-space: nowrap; }
+@media (max-width: 480px) {
+  .tabla-caja th, .tabla-caja td { padding: 10px 8px; }
+  .grafico h3 { font-size: .9rem; }
+}

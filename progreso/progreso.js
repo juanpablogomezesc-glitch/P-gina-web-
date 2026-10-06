@@ -88,47 +88,62 @@
   }
 
   // ---- Render ----
+  let ejercicio = P.EJERCICIOS[0];
+  let peso = null;
+  try { const g = parseFloat(localStorage.getItem('pr-peso')); if (g >= 30 && g <= 300) peso = g; } catch (e) {}
+
   function render() {
     const desde = P.desdeUltimasSemanas(datos.series, semanasFiltro);
     const series = P.filtrar(datos.series, desde, null);
-    const pesos = datos.pesos.filter(p => !desde || p.fecha >= desde);
+
     const res = document.getElementById('pr-resumen'); res.innerHTML = '';
-    const peso = P.resumenPeso(pesos);
-    const sinDatos = document.createElement('div');
-    const dato = (rot, val, delta, sube) => { const d = document.createElement('div'); d.className = 'dato'; d.innerHTML = `<div class="rotulo">${rot}</div><div class="valor">${val}</div>${delta ? `<div class="delta${sube ? ' sube' : ''}">${delta}</div>` : ''}`; res.appendChild(d); };
-    dato('Semanas entrenadas', P.semanasEntrenadas(series));
+    const dato = (rot, val, delta) => { const d = document.createElement('div'); d.className = 'dato'; d.innerHTML = `<div class="rotulo">${rot}</div><div class="valor">${val}</div>${delta ? `<div class="delta">${delta}</div>` : ''}`; res.appendChild(d); };
+    dato('Semanas completadas', P.semanasEntrenadas(series), desde ? 'en el período elegido' : 'desde que empezaste');
     dato('Días completados', P.diasCompletados(series));
-    dato('Peso corporal', peso.actual === null ? '—' : `${fmtNum(peso.actual)} <small>kg</small>`, peso.cambio === null ? '' : `${peso.cambio > 0 ? '+' : ''}${fmtNum(peso.cambio)} kg en el período`);
 
-    const gr = document.getElementById('pr-graficos'); gr.innerHTML = '';
-    const tabla = document.getElementById('tabla-records');
-    let filas = '';
-    P.EJERCICIOS.forEach(ej => {
-      const r = P.resumenEjercicio(series, ej);
-      const nombre = ej;
-      const t = tarjeta(nombre, r.actual === null ? '—' : `${fmtNum(r.actual)} <small>kg</small>`);
-      if (r.semanas.length < 2) {
-        const v = document.createElement('p'); v.className = 'vacio'; v.textContent = r.semanas.length ? 'Falta una semana más para ver la evolución.' : 'Sin datos en este período.'; t.appendChild(v);
-      } else {
-        lineaGrafico(t, r.semanas.map(s => ({ fecha: s.semana, valor: s.valor })), fmtNum, nombre + ' 1RM estimado', 'kg');
-      }
-      if (r.cambio !== null) { const h = t.querySelector('h3'); h.insertAdjacentHTML('afterend', ''); }
-      gr.appendChild(t);
-      const m = P.mejoresPorReps(series, ej, [1, 3, 5, 8]);
-      const c = x => x ? `${fmtNum(x.kg)}<small>${fmtCorta(x.fecha)}</small>` : '—';
-      filas += `<tr><td>${nombre}</td><td>${r.record ? `${fmtNum(r.record.kg)} × ${r.record.reps}<small>${fmtFecha(r.record.fecha)}</small>` : '—'}</td><td>${c(m[1])}</td><td>${c(m[3])}</td><td>${c(m[5])}</td><td>${c(m[8])}</td></tr>`;
+    const sel = document.getElementById('selector-ejercicio');
+    if (!sel.children.length) P.EJERCICIOS.forEach(ej => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = ej.replace(/ C\/B$/, '');
+      b.dataset.ej = ej; b.addEventListener('click', () => { ejercicio = ej; ocultarTip(); render(); });
+      sel.appendChild(b);
     });
-    tabla.innerHTML = '<caption class="sr-only" style="position:absolute;left:-9999px">Récord personal y mejor peso con al menos 1, 3, 5 y 8 repeticiones</caption><thead><tr><th>Ejercicio</th><th>Récord</th><th>1 rep</th><th>3 reps</th><th>5 reps</th><th>8 reps</th></tr></thead><tbody>' + filas + '</tbody>';
+    [...sel.children].forEach(b => b.setAttribute('aria-pressed', b.dataset.ej === ejercicio ? 'true' : 'false'));
 
-    const gp = document.getElementById('grafico-peso'); gp.innerHTML = '';
-    const tp = tarjeta('Peso corporal', peso.actual === null ? '—' : `${fmtNum(peso.actual)} <small>kg</small>`);
-    if (peso.puntos.length < 2) { const v = document.createElement('p'); v.className = 'vacio'; v.textContent = 'Cargá tu peso al menos dos veces para ver el gráfico.'; tp.appendChild(v); }
-    else lineaGrafico(tp, peso.puntos.map(p => ({ fecha: p.fecha, valor: p.kg })), fmtNum, 'Peso corporal', 'kg');
-    gp.appendChild(tp);
+    const r = P.resumenEjercicio(series, ejercicio);
+    const fuerza = (kg) => (kg && peso ? fmtNum(kg / peso) + ' × tu peso' : '—');
+    const det = document.getElementById('detalle'); det.innerHTML = '';
+    const caja = document.createElement('div'); caja.className = 'pr-resumen';
+    const mini = (rot, val, nota) => { const d = document.createElement('div'); d.className = 'dato'; d.innerHTML = `<div class="rotulo">${rot}</div><div class="valor">${val}</div>${nota ? `<div class="delta">${nota}</div>` : ''}`; caja.appendChild(d); };
+    mini('1RM estimado', r.actual === null ? '—' : `${fmtNum(r.actual)} <small>kg</small>`, r.cambio === null ? '' : `${r.cambio > 0 ? '+' : ''}${fmtNum(r.cambio)} kg en el período`);
+    mini('Récord personal', r.record ? `${fmtNum(r.record.kg)} <small>kg × ${r.record.reps}</small>` : '—', r.record ? fmtFecha(r.record.fecha) : '');
+    mini('Fuerza relativa', r.actual && peso ? `${fmtNum(r.actual / peso)} <small>× peso</small>` : '—', peso ? '1RM estimado ÷ tu peso' : 'Cargá tu peso arriba');
+    det.appendChild(caja);
+
+    const t = tarjeta(ejercicio + ' · 1RM estimado', r.actual === null ? '—' : `${fmtNum(r.actual)} <small>kg</small>`);
+    t.style.marginTop = '12px';
+    if (r.semanas.length < 2) {
+      const v = document.createElement('p'); v.className = 'vacio'; v.textContent = r.semanas.length ? 'Falta una semana más para ver la evolución.' : 'Sin datos en este período.'; t.appendChild(v);
+    } else lineaGrafico(t, r.semanas.map(s => ({ fecha: s.semana, valor: s.valor })), fmtNum, ejercicio + ' 1RM estimado', 'kg');
+    det.appendChild(t);
+
+    const m = P.mejoresPorReps(series, ejercicio, [1, 3, 5, 8]);
+    const c = x => x ? `${fmtNum(x.kg)}<small>${peso ? fmtNum(x.kg / peso) + ' × peso' : fmtCorta(x.fecha)}</small>` : '—';
+    const h = document.createElement('h2'); h.textContent = 'Mejores marcas'; det.appendChild(h);
+    const caja2 = document.createElement('div'); caja2.className = 'tabla-caja';
+    caja2.innerHTML = `<table><caption style="position:absolute;left:-9999px">Mejor peso de ${ejercicio} con al menos 1, 3, 5 y 8 repeticiones</caption><thead><tr><th>Repeticiones</th><th>Mejor peso (kg)</th><th>Cuándo</th></tr></thead><tbody>${[1, 3, 5, 8].map(n => `<tr><td>${n} o más</td><td>${m[n] ? fmtNum(m[n].kg) + (peso ? `<small>${fmtNum(m[n].kg / peso)} × tu peso</small>` : '') : '—'}</td><td>${m[n] ? fmtFecha(m[n].fecha) : '—'}</td></tr>`).join('')}</tbody></table>`;
+    det.appendChild(caja2);
   }
 
-  document.querySelectorAll('.filtros button').forEach(b => b.addEventListener('click', () => {
-    document.querySelectorAll('.filtros button').forEach(o => o.setAttribute('aria-pressed', o === b ? 'true' : 'false'));
+  const campo = document.getElementById('peso');
+  if (peso) campo.value = String(peso).replace('.', ',');
+  campo.addEventListener('input', () => {
+    const v = parseFloat(campo.value.replace(',', '.'));
+    peso = v >= 30 && v <= 300 ? v : null;
+    try { peso ? localStorage.setItem('pr-peso', peso) : localStorage.removeItem('pr-peso'); } catch (e) {}
+    render();
+  });
+  document.querySelectorAll('.filtros button[data-semanas]').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.filtros button[data-semanas]').forEach(o => o.setAttribute('aria-pressed', o === b ? 'true' : 'false'));
     semanasFiltro = +b.dataset.semanas; ocultarTip(); render();
   }));
   render();

@@ -30,23 +30,24 @@
     <span class="etiqueta">Mi progreso</span>
     <h1>Tu evolución</h1>
 
+    <section class="pr-resumen" id="pr-resumen" aria-label="Resumen"></section>
+
+    <div class="pr-controles">
+      <div class="campo-peso">
+        <label for="peso">Tu peso corporal (kg)</label>
+        <input id="peso" type="text" inputmode="decimal" maxlength="6" placeholder="Ej: 75,5" autocomplete="off">
+        <p class="nota" id="peso-nota">Escribilo para ver tu fuerza relativa. Queda guardado en este dispositivo.</p>
+      </div>
+      <div class="filtros" id="selector-ejercicio" role="group" aria-label="Ejercicio"></div>
+    </div>
+
     <div class="filtros" role="group" aria-label="Período">
       <button type="button" data-semanas="8" aria-pressed="false">8 semanas</button>
       <button type="button" data-semanas="26" aria-pressed="false">6 meses</button>
       <button type="button" data-semanas="0" aria-pressed="true">Todo</button>
     </div>
 
-    <section class="pr-resumen" id="pr-resumen" aria-label="Resumen"></section>
-
-    <h2>1RM estimado por ejercicio</h2>
-    <p class="nota">Mejor serie de cada semana, calculada con la fórmula de Epley. Es una estimación, no un máximo probado.</p>
-    <section class="pr-graficos" id="pr-graficos"></section>
-
-    <h2>Récords y mejores marcas</h2>
-    <div class="tabla-caja"><table id="tabla-records"></table></div>
-
-    <h2>Peso corporal</h2>
-    <section class="pr-graficos una" id="grafico-peso"></section>
+    <section id="detalle" aria-live="polite"></section>
 
     <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
   </main>
