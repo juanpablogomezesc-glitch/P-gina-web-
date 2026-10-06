@@ -313,3 +313,14 @@ test('el mail incluye el enlace para agregar la clase al calendario del alumno',
   assert.match(g.mails[0].htmlBody, /calendar\.google\.com\/calendar\/render\?action=TEMPLATE/);
   assert.match(g.mails[0].htmlBody, /dates=20261005T180000\/20261005T190000/);
 });
+
+test('al reservar otro lugar, las casillas que ya estaban no se borran ni se vuelven a crear', () => {
+  const g = nuevo();
+  g.post(alumno());
+  const primera = eventos(g)[0];
+  primera.setDescription('Nota que anoté yo'); // algo escrito a mano
+  g.post(alumno({ nombre: 'Beto', apellido: 'Gómez', email: 'beto@ejemplo.com' }));
+  assert.equal(primera.borrado, false);
+  assert.equal(primera.desc, 'Nota que anoté yo');
+  assert.equal(eventos(g).length, 2);
+});
