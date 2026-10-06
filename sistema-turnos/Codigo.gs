@@ -1,4 +1,7 @@
 /**
+ * @OnlyCurrentDoc
+ *   (limita el permiso a ESTA planilla: el script no puede ver tus otras planillas ni tu Drive)
+ *
  * Sistema de turnos · Juan Pablo Gómez · Entrenamiento
  *
  * Este código va dentro de una planilla de Google (Extensiones → Apps Script).
@@ -39,6 +42,12 @@ const OPCIONES = [
   ['avisarme', 'Avisarme cada reserva (Sí/No)', 'No', 'Si es Sí, te llega un mail con cada reserva y cancelación.'],
   ['miEmail', 'Mi email', '', 'Donde te llegan los avisos. Los alumnos también responden a esta dirección.'],
 ];
+
+// Límites contra abuso (la dirección del sistema es pública: cualquiera puede intentar reservar).
+const LIMITE_RESERVAS_POR_HORA = 40;       // entre todas las personas
+const LIMITE_RESERVAS_POR_EMAIL_HORA = 5;  // una misma persona, en una hora
+const LIMITE_RESERVAS_FUTURAS_POR_EMAIL = 12; // una misma persona, clases todavía pendientes
+const MAILS_RESERVADOS_PARA_VOS = 10;      // si queda menos cuota diaria de mails, no se mandan confirmaciones
 
 const ZONA_HORARIA = 'America/Argentina/Buenos_Aires';
 const HORA_MS = 60 * 60 * 1000;
@@ -189,6 +198,7 @@ function reservar_(d) {
   try {
     const turno = buscarTurno_(fecha, hora, cfg);
     const reservas = leerReservas_();
+    controlarAbuso_(reservas, email);
     const libres = turno.cupo - (lugaresOcupados_(reservas)[clave_(fecha, hora)] || 0);
     if (libres <= 0) throw errorUsuario_('Ese horario se acaba de llenar. Elegí otro.');
     if (lugares > libres) throw errorUsuario_(`En ese horario ${libres === 1 ? 'queda 1 lugar' : `quedan ${libres} lugares`}.`);
@@ -207,7 +217,7 @@ function reservar_(d) {
       fecha, hora, lugares, nombre, apellido, email,
     };
     hoja_(HOJAS.RESERVAS).appendRow([
-      reserva.id, fecha, hora, lugares, seguro_(nombre), seguro_(apellido), seguro_(email), CONFIRMADA, new Date(), reserva.token,
+      reserva.id, fecha, hora, lugares, seguro_(nombre), seguro_(apellido), seguro_(email), CONFIRMADA, new Date(ahora_().getTime()), reserva.token,
     ]);
     SpreadsheetApp.flush();
   } finally {
@@ -222,6 +232,23 @@ function reservar_(d) {
   }
 
   return { ok: true, id: reserva.id, fecha, hora, lugares, etiqueta: etiquetaFecha_(fecha), email };
+}
+
+/** Frena el uso masivo: muchas reservas seguidas, de una persona o entre todas. */
+function controlarAbuso_(reservas, email) {
+  const ahoraMs = ahora_().getTime();
+  const ultimaHora = reservas.filter(r => r.creada >= ahoraMs - HORA_MS);
+  if (ultimaHora.length >= LIMITE_RESERVAS_POR_HORA) {
+    throw errorUsuario_('Hay muchas reservas en este momento. Probá de nuevo en unos minutos.');
+  }
+  if (ultimaHora.filter(r => r.email === email).length >= LIMITE_RESERVAS_POR_EMAIL_HORA) {
+    throw errorUsuario_('Hiciste varias reservas seguidas. Esperá un rato y probá de nuevo.');
+  }
+  const hoy = formatear_(ahora_(), 'yyyy-MM-dd');
+  const pendientes = reservas.filter(r => r.estado === CONFIRMADA && r.email === email && r.fecha >= hoy).length;
+  if (pendientes >= LIMITE_RESERVAS_FUTURAS_POR_EMAIL) {
+    throw errorUsuario_('Ya tenés muchas reservas pendientes. Cancelá alguna o avisale a tu entrenador.');
+  }
 }
 
 /** Verifica que el horario exista en la plantilla, no esté suspendido y esté dentro del plazo. */
@@ -321,6 +348,13 @@ function avisar_(cfg, asunto, texto) {
 
 function enviar_(cfg, para, asunto, html) {
   try {
+    // Gmail limita los mails por día. Si casi se agotó, se guarda la reserva pero no se manda el mail,
+    // para que nadie pueda dejarte sin cupo de envíos y los avisos importantes sigan saliendo.
+    const esAviso = cfg.miEmail && para === cfg.miEmail;
+    if (!esAviso && MailApp.getRemainingDailyQuota() <= MAILS_RESERVADOS_PARA_VOS) {
+      console.error('Cuota diaria de mails casi agotada: no se envió el mail a ' + para);
+      return;
+    }
     const opciones = { to: para, subject: asunto, htmlBody: html, name: cfg.nombre };
     if (cfg.miEmail && para !== cfg.miEmail) opciones.replyTo = cfg.miEmail;
     MailApp.sendEmail(opciones);
@@ -386,6 +420,7 @@ function leerReservas_() {
     email: sinApostrofe_(fila[COL.EMAIL]).toLowerCase(),
     estado: String(fila[COL.ESTADO]).trim(),
     token: String(fila[COL.TOKEN]),
+    creada: fila[COL.CREADA] instanceof Date ? fila[COL.CREADA].getTime() : 0,
   })).filter(r => r.id);
 }
 

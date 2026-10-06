@@ -154,3 +154,46 @@ test('configurar no pisa una planilla existente y deja sus datos', () => {
   assert.equal(g.hojas['Horarios'].datos.length, 10); // 1 encabezado + 8 ejemplos + 1 propio
   assert.deepEqual(g.hojas['Horarios'].datos.at(-1), ['Jueves', '20:00', 3]);
 });
+
+test('frena a una persona que reserva muchas veces seguidas', () => {
+  const g = nuevo();
+  ['19:00', '20:00', '21:00', '22:00', '23:00'].forEach(h => g.hojas['Horarios'].appendRow(['Martes', h, 100]));
+  ['19:00', '20:00', '21:00', '22:00', '23:00'].forEach(h => assert.equal(g.post(alumno({ fecha: '2026-10-06', hora: h })).ok, true));
+  const r = g.post(alumno({ fecha: '2026-10-06', hora: '19:00', lugares: 1 }));
+  assert.equal(r.ok, false);
+  assert.match(r.error, /varias reservas seguidas/);
+  // otra persona sigue pudiendo reservar
+  assert.equal(g.post(alumno({ fecha: '2026-10-06', hora: '20:00', email: 'otra@ejemplo.com' })).ok, true);
+  // una hora después, la misma persona puede volver a reservar
+  g.moverReloj('2026-10-05T08:30:00-03:00');
+  assert.equal(g.post(alumno({ fecha: '2026-10-06', hora: '20:00' })).ok, true);
+});
+
+test('frena el uso masivo entre todas las personas', () => {
+  const g = nuevo();
+  g.hojas['Horarios'].appendRow(['Martes', '20:00', 500]);
+  for (let i = 0; i < 40; i++) assert.equal(g.post(alumno({ fecha: '2026-10-06', hora: '20:00', email: `a${i}@ejemplo.com` })).ok, true);
+  const r = g.post(alumno({ fecha: '2026-10-06', hora: '20:00', email: 'nuevo@ejemplo.com' }));
+  assert.equal(r.ok, false);
+  assert.match(r.error, /muchas reservas en este momento/);
+});
+
+test('limita las reservas pendientes de una misma persona', () => {
+  const g = nuevo();
+  g.hojas['Horarios'].appendRow(['Martes', '20:00', 100]);
+  g.hojas['Horarios'].appendRow(['Jueves', '20:00', 100]);
+  // se simulan 12 reservas viejas (de hace días) todavía pendientes
+  for (let i = 0; i < 12; i++) g.hojas['Reservas'].appendRow([`X${i}`, '2026-10-08', '20:00', 1, 'Ana', 'Pérez', 'ana@ejemplo.com', 'Confirmada', new Date('2026-10-01T10:00:00Z'), `t${i}`]);
+  const r = g.post(alumno({ fecha: '2026-10-06', hora: '20:00' }));
+  assert.equal(r.ok, false);
+  assert.match(r.error, /muchas reservas pendientes/);
+});
+
+test('si queda poca cuota de mails, guarda la reserva pero no manda confirmaciones', () => {
+  const g = nuevo();
+  g.setCuota(5);
+  const r = g.post(alumno());
+  assert.equal(r.ok, true); // la reserva queda guardada de todos modos
+  assert.equal(g.mails.length, 0); // pero no se gastó cuota en mails
+  assert.equal(g.hojas['Reservas'].datos.length, 2);
+});

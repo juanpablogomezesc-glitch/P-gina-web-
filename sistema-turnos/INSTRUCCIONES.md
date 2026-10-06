@@ -81,3 +81,33 @@ Los cambios en la planilla se ven en la página al instante, sin volver a public
   después ir a **Implementar → Gestionar implementaciones → editar (lápiz) → Versión: Nueva versión → Implementar**.
   La URL no cambia.
 - **Dos personas a la vez**: el sistema reserva de a una, así que nunca se pasa del cupo.
+
+---
+
+## Seguridad: qué puede y qué no puede hacer este sistema
+
+- **El código corre en los servidores de Google, no en tu computadora.** Quien visite la página no
+  toca tu computadora en ningún momento.
+- **Permisos limitados a una sola planilla.** El código lleva la marca `@OnlyCurrentDoc`: solo puede
+  leer y escribir en la planilla "Turnos · JP Entrenamiento", no en tus otras planillas ni en tu Drive.
+  También puede mandar mails con tu cuenta, que es lo que usa para las confirmaciones.
+- **No hace pedidos a otros sitios de internet, no abre tu Gmail y no instala nada.**
+- **Los datos de tus alumnos (nombre y mail) quedan solo en tu planilla**, que es privada. Ninguna
+  dirección del sistema devuelve la lista de reservas: cada reserva solo se consulta con su código secreto.
+- **Límites contra abuso.** La dirección del sistema es pública, así que alguien podría intentar llenar
+  los horarios con reservas falsas. El código frena: más de 5 reservas por hora de una misma persona,
+  más de 40 por hora entre todas, y más de 12 reservas pendientes de una misma persona. Además deja
+  de mandar mails de confirmación si queda poca cuota diaria de Gmail. Si igual pasara, podés
+  cancelar reservas cambiando el Estado a `Cancelada` en la planilla.
+
+**Lo que más te protege a vos** (más que cualquier código):
+1. Activá la **verificación en dos pasos** en tu cuenta de Google y en tu cuenta de GitHub.
+2. No des acceso de "editor" de la planilla a nadie que no sea de confianza.
+3. No instales programas ni abras archivos que no esperabas.
+
+## Cómo actualizar el código cuando cambia
+
+1. Copiá el código nuevo (mismo enlace de siempre) y pegalo en Apps Script, reemplazando todo. Guardá.
+2. **Implementar → Gestionar implementaciones → lápiz → Versión: Nueva versión → Implementar.**
+   La dirección `/exec` no cambia.
+3. Si el código pide un permiso nuevo o más acotado, Google te va a pedir autorizar de nuevo. Aceptá.
