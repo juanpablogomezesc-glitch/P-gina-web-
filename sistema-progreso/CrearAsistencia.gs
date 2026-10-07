@@ -20,7 +20,8 @@ const DIAS_ = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
 const COLUMNAS_ = 11; // A:G calendario · H en blanco · I:K resumen
 
 /** Arma, sin tocar ninguna planilla, qué va en cada celda. Las filas y columnas empiezan en 1. */
-function armarCalendario_(anio, objetivo) {
+function armarCalendario_(anio, objetivo, sep) {
+  sep = sep || ','; // separador de argumentos de las fórmulas: depende del idioma de la planilla
   const filas = [];
   const casilleros = [];  // { fila, desde, hasta }: dónde van los tildes
   const bloques = [];     // { titulo, fila, ultima }
@@ -51,8 +52,11 @@ function armarCalendario_(anio, objetivo) {
       }
       casilleros.push({ fila: filaFechas + 1, desde: primero, hasta: ultimo });
     }
-    poner(fila + 1, 10, `=COUNTIF(A${primeraFecha}:G${ultima},TRUE)`);
-    poner(fila + 1, 11, `=SPARKLINE(J${fila + 1},{"charttype","bar";"max",I${fila + 1}})`);
+    const J = `J${fila + 1}`, I = `I${fila + 1}`;
+    const llenos = `MIN(10${sep}ROUND(${J}/${I}*10${sep}0))`;
+    poner(fila + 1, 10, `=COUNTIF(A${primeraFecha}:G${ultima}${sep}TRUE())`);
+    // Barra de progreso con caracteres (sin SPARKLINE, que necesita listas con separadores distintos según el idioma)
+    poner(fila + 1, 11, `=IFERROR(REPT("█"${sep}${llenos})&REPT("░"${sep}10-${llenos})&" "&ROUND(${J}/${I}*100${sep}0)&"%"${sep}"")`);
     bloques.push({ titulo: fila, encabezado: fila + 1, primeraFecha, ultima });
     fila = ultima + 2; // una fila en blanco entre meses
   }
@@ -74,14 +78,27 @@ function fechasMarcadas_(valores) {
   return fechas.sort();
 }
 
+/**
+ * Averigua con qué separa los argumentos la planilla: "," (inglés) o ";" (español y otros).
+ * Escribe SUM(1,2) en una celda de prueba: si da 3, la coma sirve; si no, se usa ";".
+ */
+function detectarSeparador_(hoja) {
+  const celda = hoja.getRange(1, 1);
+  celda.setFormula('=SUM(1,2)');
+  SpreadsheetApp.flush();
+  const coma = celda.getValue() === 3;
+  celda.clear();
+  return coma ? ',' : ';';
+}
+
 function crearAsistencia() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const nombre = `Asistencia ${ANIO}`;
   if (ss.getSheetByName(nombre)) {
     throw new Error(`Ya existe la pestaña "${nombre}". Si querés rehacerla, borrala primero (o cambiá ANIO).`);
   }
-  const m = armarCalendario_(ANIO, OBJETIVO_POR_DEFECTO);
   const hoja = ss.insertSheet(nombre);
+  const m = armarCalendario_(ANIO, OBJETIVO_POR_DEFECTO, detectarSeparador_(hoja));
   const todas = hoja.getRange(1, 1, m.filas.length, COLUMNAS_);
   // Las fórmulas se escriben aparte con setFormula, que siempre usa la sintaxis en inglés (sin depender del idioma de la planilla).
   const formulas = [];

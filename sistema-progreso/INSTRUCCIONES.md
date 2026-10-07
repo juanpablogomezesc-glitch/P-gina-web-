@@ -35,3 +35,11 @@ No borra ni cambia ninguna otra pestaña: solo agrega una nueva.
 Cuando te guste el resultado, repetí los pasos 2 y 3 en tu planilla modelo (la que se copia para cada alumno). Después podés borrar el código de Apps Script: el calendario queda.
 
 Si querés rehacer la pestaña, borrala primero. El código no pisa una pestaña que ya existe.
+
+## Si las fórmulas daban error (`#ERROR!`)
+
+Pasaba en planillas configuradas en español, donde las fórmulas separan con `;` en vez de `,`. La versión actual del código lo detecta sola y reemplaza la barra de progreso por una hecha con caracteres (`██████░░░░ 60%`). Para actualizarla:
+
+1. Borrá la pestaña "Asistencia 2026" (clic derecho en la pestaña > Eliminar).
+2. En Apps Script, reemplazá el código por la versión nueva de `CrearAsistencia.gs` y guardá.
+3. Ejecutá **crearAsistencia** de nuevo.
