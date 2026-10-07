@@ -27,7 +27,11 @@
     }
     return { series, asistencia };
   }
-  const datos = demo();
+  // Dirección del script central (se completa al publicarlo). Con ?c=CLAVE se muestran los datos reales de esa persona.
+  const API_URL = '';
+  const clave = new URLSearchParams(location.search).get('c');
+  let datos = clave ? { series: [], asistencia: [] } : demo();
+  let objetivos = {};
   let semanasFiltro = 0;
 
   // ---- Utilidades de dibujo ----
@@ -91,7 +95,7 @@
   let peso = null;
   try { const g = parseFloat(localStorage.getItem('pr-peso')); if (g >= 30 && g <= 300) peso = g; } catch (e) {}
 
-  const OBJETIVO_MENSUAL = 12; // en la planilla real sale de la columna "Objetivo" de Control Mensual
+  const OBJETIVO_MENSUAL = 12; // si la planilla no trae objetivo para un mes
   const NOMBRE_MES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
   function dibujarDias() {
@@ -99,17 +103,19 @@
     const meses = P.diasPorMes(datos.asistencia).slice(-6);
     if (!meses.length) { cont.innerHTML = '<p class="vacio">Todavía no hay días registrados.</p>'; return; }
     const actual = meses[meses.length - 1];
-    const pct = Math.min(100, Math.round(actual.cantidad / OBJETIVO_MENSUAL * 100));
+    const objetivoDe = mes => objetivos[mes] || OBJETIVO_MENSUAL;
+    const OBJ = objetivoDe(actual.mes);
+    const pct = Math.min(100, Math.round(actual.cantidad / OBJ * 100));
     const nombre = m => NOMBRE_MES[+m.slice(5) - 1];
     const barra = document.createElement('div'); barra.className = 'dato barra-mes';
-    barra.innerHTML = `<div class="rotulo">${nombre(actual.mes)}</div><div class="valor">${actual.cantidad} <small>de ${OBJETIVO_MENSUAL} días</small></div>
-      <div class="progreso-barra" role="progressbar" aria-valuemin="0" aria-valuemax="${OBJETIVO_MENSUAL}" aria-valuenow="${Math.min(actual.cantidad, OBJETIVO_MENSUAL)}" aria-label="Días entrenados en ${nombre(actual.mes)}"><span style="width:${pct}%"></span></div>
-      <div class="delta">${actual.cantidad >= OBJETIVO_MENSUAL ? '¡Objetivo del mes cumplido!' : `Te faltan ${OBJETIVO_MENSUAL - actual.cantidad} para el objetivo`}</div>`;
+    barra.innerHTML = `<div class="rotulo">${nombre(actual.mes)}</div><div class="valor">${actual.cantidad} <small>de ${OBJ} días</small></div>
+      <div class="progreso-barra" role="progressbar" aria-valuemin="0" aria-valuemax="${OBJ}" aria-valuenow="${Math.min(actual.cantidad, OBJ)}" aria-label="Días entrenados en ${nombre(actual.mes)}"><span style="width:${pct}%"></span></div>
+      <div class="delta">${actual.cantidad >= OBJ ? '¡Objetivo del mes cumplido!' : `Te faltan ${OBJ - actual.cantidad} para el objetivo`}</div>`;
     cont.appendChild(barra);
 
     const t = tarjeta('Por mes', `${meses.reduce((a, m) => a + m.cantidad, 0)} <small>días</small>`);
-    const W = 460, H = 180, m = { t: 14, r: 10, b: 26, l: 28 }, tope = Math.max(OBJETIVO_MENSUAL + 2, ...meses.map(x => x.cantidad));
-    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Días entrenados por mes: ' + meses.map(x => `${nombre(x.mes)} ${x.cantidad}`).join(', ') + `. Objetivo ${OBJETIVO_MENSUAL}.` });
+    const W = 460, H = 180, m = { t: 14, r: 10, b: 26, l: 28 }, tope = Math.max(OBJ + 2, ...meses.map(x => x.cantidad));
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Días entrenados por mes: ' + meses.map(x => `${nombre(x.mes)} ${x.cantidad}`).join(', ') + `. Objetivo ${OBJ}.` });
     const y = v => m.t + (1 - v / tope) * (H - m.t - m.b), paso = (W - m.l - m.r) / meses.length, ancho = Math.min(36, paso * 0.55);
     el('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), stroke: '#2e2e2e' }, svg);
     meses.forEach((x, i) => {
@@ -119,11 +125,11 @@
       const v = el('text', { x: cx, y: y(x.cantidad) - 5, 'text-anchor': 'middle', fill: '#f2f2f2', 'font-size': 11, 'font-weight': 600 }, svg); v.textContent = x.cantidad;
       const l = el('text', { x: cx, y: H - 8, 'text-anchor': 'middle', fill: '#a3a3a3', 'font-size': 11 }, svg); l.textContent = nombre(x.mes).slice(0, 3);
       const zona = el('rect', { x: cx - paso / 2, y: 0, width: paso, height: H, fill: 'transparent' }, svg);
-      const mostrar = () => { const b = r.getBoundingClientRect(); mostrarTip(`<b>${x.cantidad} días</b><span>${nombre(x.mes)} · objetivo ${OBJETIVO_MENSUAL}</span>`, b.left + b.width / 2, b.top); };
+      const mostrar = () => { const b = r.getBoundingClientRect(); mostrarTip(`<b>${x.cantidad} días</b><span>${nombre(x.mes)} · objetivo ${objetivoDe(x.mes)}</span>`, b.left + b.width / 2, b.top); };
       zona.addEventListener('pointerenter', mostrar); zona.addEventListener('pointerdown', mostrar); zona.addEventListener('pointerleave', ocultarTip);
     });
-    el('line', { x1: m.l, x2: W - m.r, y1: y(OBJETIVO_MENSUAL), y2: y(OBJETIVO_MENSUAL), stroke: '#a3a3a3', 'stroke-dasharray': '4 4' }, svg);
-    const o = el('text', { x: m.l - 4, y: y(OBJETIVO_MENSUAL) + 4, 'text-anchor': 'end', fill: '#a3a3a3', 'font-size': 10 }, svg); o.textContent = OBJETIVO_MENSUAL;
+    el('line', { x1: m.l, x2: W - m.r, y1: y(OBJ), y2: y(OBJ), stroke: '#a3a3a3', 'stroke-dasharray': '4 4' }, svg);
+    const o = el('text', { x: m.l - 4, y: y(OBJ) + 4, 'text-anchor': 'end', fill: '#a3a3a3', 'font-size': 10 }, svg); o.textContent = OBJ;
     t.appendChild(svg); cont.appendChild(t);
   }
 
@@ -184,5 +190,23 @@
     document.querySelectorAll('.filtros button[data-semanas]').forEach(o => o.setAttribute('aria-pressed', o === b ? 'true' : 'false'));
     semanasFiltro = +b.dataset.semanas; ocultarTip(); render();
   }));
-  render();
+
+  function arrancar() {
+    if (!clave) { render(); return; }
+    const estado = document.getElementById('estado-carga');
+    document.getElementById('aviso-demo').hidden = true;
+    estado.hidden = false; estado.textContent = 'Cargando tu progreso…';
+    if (!API_URL) { estado.textContent = 'El dashboard todavía no está conectado.'; return; }
+    fetch(`${API_URL}?accion=progreso&clave=${encodeURIComponent(clave)}`)
+      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) { estado.textContent = r.error || 'No se pudo cargar.'; return; }
+        datos = { series: r.series, asistencia: r.asistencia }; objetivos = r.objetivos || {};
+        if (r.nombre) document.getElementById('titulo').textContent = 'Hola, ' + r.nombre.split(' ')[0];
+        estado.hidden = true;
+        render();
+      })
+      .catch(() => { estado.textContent = 'No pudimos cargar tus datos. Revisá tu conexión e intentá de nuevo.'; });
+  }
+  arrancar();
 })();
