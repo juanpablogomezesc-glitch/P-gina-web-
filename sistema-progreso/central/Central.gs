@@ -153,32 +153,49 @@ function configurar() {
   ss.toast('Pestaña "Alumnos" lista. Cargá nombre, email y link de la planilla; después ejecutá generarClaves.', 'Progreso', 8);
 }
 
-/** Les pone clave y link a los alumnos que todavía no tienen. Se ejecuta cada vez que sumás a alguien. */
-function generarClaves() {
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_ALUMNOS);
-  if (!hoja) throw new Error('Primero ejecutá configurar.');
+/** Las filas de "Alumnos" como objetos. La planilla puede estar escrita como texto o como link/ficha de Drive: se lee la dirección real. */
+function leerAlumnos_(hoja) {
   const ultima = hoja.getLastRow();
-  if (ultima < 2) return;
-  const datos = hoja.getRange(2, 1, ultima - 1, COLUMNAS_ALUMNOS.length).getValues();
-  const usadas = new Set(datos.map(f => String(f[3])).filter(Boolean));
+  if (ultima < 2) return [];
+  const rango = hoja.getRange(2, 1, ultima - 1, COLUMNAS_ALUMNOS.length);
+  const datos = rango.getValues();
+  const ricos = hoja.getRange(2, 3, ultima - 1, 1).getRichTextValues();
+  return datos.map((f, i) => {
+    const enlace = ricos[i][0] && ricos[i][0].getLinkUrl ? ricos[i][0].getLinkUrl() : null;
+    return { fila: i + 2, nombre: String(f[0]).trim(), planilla: idDePlanilla_(enlace) || idDePlanilla_(f[2]), clave: String(f[3]).trim() };
+  });
+}
+
+/** Les pone clave y link a los alumnos que todavía no tienen, y avisa por qué se salteó cada fila que no pudo. */
+function generarClaves() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName(HOJA_ALUMNOS);
+  if (!hoja) throw new Error('Primero ejecutá configurar.');
+  const alumnos = leerAlumnos_(hoja);
+  const usadas = new Set(alumnos.map(a => a.clave).filter(Boolean));
   let nuevas = 0;
-  datos.forEach((f, i) => {
-    if (!String(f[0]).trim() || !idDePlanilla_(f[2])) return;       // falta nombre o planilla
-    if (String(f[3]).trim()) return;                                 // ya tiene clave
+  const avisos = [];
+  alumnos.forEach(a => {
+    if (!a.nombre && !a.planilla && !a.clave) return;                                  // fila vacía
+    if (!a.nombre) { avisos.push(`Fila ${a.fila}: falta el nombre.`); return; }
+    if (!a.planilla) { avisos.push(`Fila ${a.fila} (${a.nombre}): no reconozco el link de la planilla.`); return; }
+    if (a.clave) return;                                                               // ya tiene clave
     let c; do { c = claveNueva_(); } while (usadas.has(c));
     usadas.add(c);
-    hoja.getRange(i + 2, 4, 1, 2).setValues([[c, `${PAGINA}?c=${c}`]]);
+    hoja.getRange(a.fila, 4, 1, 2).setValues([[c, `${PAGINA}?c=${c}`]]);
     nuevas++;
   });
-  SpreadsheetApp.getActiveSpreadsheet().toast(`${nuevas} alumno(s) con link nuevo.`, 'Progreso', 6);
+  const resumen = `${nuevas} alumno(s) con link nuevo.` + (avisos.length ? ' ' + avisos.join(' ') : '');
+  Logger.log(`${resumen} (${alumnos.length} fila(s) leída(s))`);
+  ss.toast(resumen, 'Progreso', 15);
+  if (!alumnos.length) ss.toast('No hay filas con datos debajo de los títulos de la pestaña "Alumnos".', 'Progreso', 15);
 }
 
 function buscarAlumno_(clave) {
   const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_ALUMNOS);
-  if (!hoja || hoja.getLastRow() < 2) return null;
-  const datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, COLUMNAS_ALUMNOS.length).getValues();
-  const fila = datos.find(f => String(f[3]) === clave);
-  return fila ? { nombre: String(fila[0]).trim(), planilla: idDePlanilla_(fila[2]) } : null;
+  if (!hoja) return null;
+  const a = leerAlumnos_(hoja).find(x => x.clave === clave);
+  return a ? { nombre: a.nombre, planilla: a.planilla } : null;
 }
 
 // ---------- Web app ----------

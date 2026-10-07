@@ -29,10 +29,21 @@ const ENCABEZADO_NUEVO = ['', '', '', 'Ejercicios ', 'Obs', '', 'SER', 'REP', 'K
 const ENCABEZADO_VIEJO = ['', '', '', 'Ejercicios ', 'Obs', '', 'Ser', 'Repeticiones ', '', '', '', '', '', 'Kilogramos'];
 const semana = (n, filas, encabezado = ENCABEZADO_NUEVO) => hoja(`Semana ${n}`, [encabezado, ['', '', '', 'DÍA 1 '], ...filas]);
 
-function entorno({ alumnos = [], planillas = {} } = {}) {
+function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
   const celdasCache = new Map();
   const filasAlumnos = [['Nombre', 'Email', 'Planilla (link o ID)', 'Clave', 'Link'], ...alumnos];
-  const ss = { getSheetByName: n => (n === 'Alumnos' ? hoja('Alumnos', filasAlumnos) : null), toast() {} };
+  const avisos = [];
+  const hojaAlumnos = {
+    getName: () => 'Alumnos',
+    getLastRow: () => filasAlumnos.length,
+    getRange: (f, c, nf = 1, nc = 1) => ({
+      getValues: () => Array.from({ length: nf }, (_, i) => Array.from({ length: nc }, (_, j) => (filasAlumnos[f - 1 + i] || [])[c - 1 + j] ?? '')),
+      // una celda con ficha/link de Drive muestra el nombre del archivo, pero guarda la dirección real
+      getRichTextValues: () => Array.from({ length: nf }, (_, i) => [{ getLinkUrl: () => enlaces[f - 1 + i] || null }]),
+      setValues: v => v.forEach((fila, i) => fila.forEach((x, j) => { (filasAlumnos[f - 1 + i] = filasAlumnos[f - 1 + i] || [])[c - 1 + j] = x; })),
+    }),
+  };
+  const ss = { getSheetByName: n => (n === 'Alumnos' ? hojaAlumnos : null), toast: t => avisos.push(t) };
   const lecturas = { n: 0 };
   const ctx = vm.createContext({
     Date, Math, Error, JSON, Map, Set, Logger: { log() {} },
@@ -43,9 +54,9 @@ function entorno({ alumnos = [], planillas = {} } = {}) {
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) ? celdasCache.get(k) : null), put: (k, v) => celdasCache.set(k, v) }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, doGet, idDePlanilla_ };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, doGet, idDePlanilla_, generarClaves };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
-  return { api: ctx.__api, get, lecturas, cache: celdasCache };
+  return { api: ctx.__api, get, lecturas, cache: celdasCache, filas: filasAlumnos, avisos };
 }
 
 // ---- lectura de pestañas ----
@@ -179,4 +190,47 @@ test('el link o el ID de la planilla se reconocen', () => {
   assert.equal(api.idDePlanilla_(ID_B), ID_B);
   assert.equal(api.idDePlanilla_('hola'), '');
   assert.equal(api.idDePlanilla_(''), '');
+});
+
+// ---- generarClaves ----
+test('generarClaves le pone clave y link a quien no tiene, sin tocar las claves que ya existen', () => {
+  const { api, filas } = entorno({ alumnos: [
+    ['Ana', 'a@x.com', ID_A, '', ''],
+    ['Beto', 'b@x.com', ID_B, CLAVE_B, 'link-viejo'],
+  ] });
+  api.generarClaves();
+  assert.match(filas[1][3], /^[a-zA-Z0-9]{24}$/);
+  assert.equal(filas[1][4], 'https://juanpablogomezesc-glitch.github.io/P-gina-web-/progreso.html?c=' + filas[1][3]);
+  assert.equal(filas[2][3], CLAVE_B);
+  assert.equal(filas[2][4], 'link-viejo');
+});
+
+test('generarClaves reconoce la planilla aunque la celda sea una ficha de Drive con solo el nombre del archivo', () => {
+  const { api, filas, avisos } = entorno({
+    alumnos: [['Juan Pablo', 'jp@x.com', 'Juan Pablo Gomez', '', '']],
+    enlaces: { 1: `https://docs.google.com/spreadsheets/d/${ID_A}/edit?usp=drivesdk` },
+  });
+  api.generarClaves();
+  assert.match(filas[1][3], /^[a-zA-Z0-9]{24}$/);
+  assert.match(avisos.join(' '), /1 alumno/);
+});
+
+test('generarClaves avisa por qué se saltea una fila: sin nombre o con un link que no reconoce', () => {
+  const { api, filas, avisos } = entorno({ alumnos: [['', 'a@x.com', ID_A, '', ''], ['Beto', 'b@x.com', 'Juan Pablo Gomez', '', '']] });
+  api.generarClaves();
+  assert.equal(filas[1][3] || '', '');
+  assert.equal(filas[2][3] || '', '');
+  const texto = avisos.join(' ');
+  assert.match(texto, /0 alumno/);
+  assert.match(texto, /Fila 2: falta el nombre/);
+  assert.match(texto, /Fila 3 \(Beto\): no reconozco el link/);
+});
+
+test('doGet también encuentra al alumno cuando su planilla es una ficha de Drive', () => {
+  const { get } = entorno({
+    alumnos: [['Ana', 'a@x.com', 'Mi planilla', CLAVE_A, '']],
+    enlaces: { 1: `https://docs.google.com/spreadsheets/d/${ID_A}/edit` },
+    planillas: { [ID_A]: planillas[ID_A] },
+  });
+  assert.equal(get({ accion: 'progreso', clave: CLAVE_A }).ok, true);
 });
