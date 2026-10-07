@@ -28,7 +28,7 @@
     return { series, asistencia };
   }
   // Dirección del script central (se completa al publicarlo). Con ?c=CLAVE se muestran los datos reales de esa persona.
-  const API_URL = '';
+  const API_URL = 'https://script.google.com/macros/s/AKfycbxJOD38AnzlNTIYBdZjqZF20HhrCT2H53XL_7IuNtCS2oyCZfjfr1VK7PQX-1YgsEyfDQ/exec';
   const clave = new URLSearchParams(location.search).get('c');
   let datos = clave ? { series: [], asistencia: [] } : demo();
   let objetivos = {};
