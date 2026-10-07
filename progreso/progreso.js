@@ -135,8 +135,9 @@
 
     const res = document.getElementById('pr-resumen'); res.innerHTML = '';
     const dato = (rot, val, delta) => { const d = document.createElement('div'); d.className = 'dato'; d.innerHTML = `<div class="rotulo">${rot}</div><div class="valor">${val}</div>${delta ? `<div class="delta">${delta}</div>` : ''}`; res.appendChild(d); };
-    dato('Semanas completadas', P.semanasEntrenadas(series), desde ? 'en el período elegido' : 'desde que empezaste');
-    dato('Días completados', P.diasCompletados(series));
+    const fechas = series.map(s => s.fecha);
+    dato('Semanas completadas', P.semanasCompletas(fechas), `con ${P.DIAS_PARA_SEMANA_COMPLETA} días o más${desde ? ' · período elegido' : ''}`);
+    dato('Días entrenados', P.diasCompletados(series));
 
     const sel = document.getElementById('selector-ejercicio');
     if (!sel.children.length) P.EJERCICIOS.forEach(ej => {

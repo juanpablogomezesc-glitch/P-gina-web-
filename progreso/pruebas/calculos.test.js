@@ -90,3 +90,14 @@ test('días entrenados por mes: ordenados y sin contar dos veces el mismo día',
   const r = P.diasPorMes(['2026-09-14', '2026-08-30', '2026-09-02', '2026-09-02']);
   assert.deepStrictEqual(r, [{ mes: '2026-08', cantidad: 1 }, { mes: '2026-09', cantidad: 2 }]);
 });
+
+test('semana completa: 3 días o más entre lunes y domingo, sin contar dos veces el mismo día', () => {
+  const fechas = [
+    '2026-10-05', '2026-10-07', '2026-10-09', // lunes, miércoles y viernes: completa
+    '2026-10-12', '2026-10-14',                // solo 2 días: no
+    '2026-10-19', '2026-10-19', '2026-10-20',  // el mismo día repetido cuenta una vez: 2 días, no
+    '2026-11-01', '2026-11-02',                // domingo y lunes siguiente: cada uno cae en una semana distinta
+  ];
+  assert.strictEqual(P.semanasCompletas(fechas), 1);
+  assert.strictEqual(P.semanasCompletas(fechas, 2), 3);
+});

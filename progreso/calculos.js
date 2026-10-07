@@ -84,6 +84,15 @@
     return [...cuenta.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([mes, cantidad]) => ({ mes, cantidad }));
   }
 
+  const DIAS_PARA_SEMANA_COMPLETA = 3;
+
+  /** Semanas (lunes a domingo) con al menos `minimo` días entrenados. Recibe fechas ['AAAA-MM-DD', ...]. */
+  function semanasCompletas(fechas, minimo = DIAS_PARA_SEMANA_COMPLETA) {
+    const porSemana = new Map();
+    [...new Set(fechas)].forEach(f => { const l = lunes(f); porSemana.set(l, (porSemana.get(l) || 0) + 1); });
+    return [...porSemana.values()].filter(n => n >= minimo).length;
+  }
+
   const semanasEntrenadas = series => new Set(series.map(s => lunes(s.fecha))).size;
   const diasCompletados = series => new Set(series.map(s => s.fecha)).size;
 
@@ -103,5 +112,5 @@
   }
 
   return { EJERCICIOS, MAX_REPS_ESTIMABLES, epley, lunes, filtrar, rmPorSemana, recordPersonal, mejoresPorReps,
-    resumenEjercicio, diasPorMes, semanasEntrenadas, diasCompletados, resumenPeso, desdeUltimasSemanas };
+    resumenEjercicio, diasPorMes, DIAS_PARA_SEMANA_COMPLETA, semanasCompletas, semanasEntrenadas, diasCompletados, resumenPeso, desdeUltimasSemanas };
 });
