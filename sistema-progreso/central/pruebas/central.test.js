@@ -33,11 +33,12 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
   const celdasCache = new Map();
   const filasAlumnos = [['Nombre', 'Email', 'Planilla (link o ID)', 'Clave', 'Link'], ...alumnos];
   const avisos = [];
+  const lecturasAlumnos = { n: 0 };
   const hojaAlumnos = {
     getName: () => 'Alumnos',
     getLastRow: () => filasAlumnos.length,
     getRange: (f, c, nf = 1, nc = 1) => ({
-      getValues: () => Array.from({ length: nf }, (_, i) => Array.from({ length: nc }, (_, j) => (filasAlumnos[f - 1 + i] || [])[c - 1 + j] ?? '')),
+      getValues: () => (lecturasAlumnos.n++, null) || Array.from({ length: nf }, (_, i) => Array.from({ length: nc }, (_, j) => (filasAlumnos[f - 1 + i] || [])[c - 1 + j] ?? '')),
       // una celda con ficha/link de Drive muestra el nombre del archivo, pero guarda la dirección real
       getRichTextValues: () => Array.from({ length: nf }, (_, i) => [{ getLinkUrl: () => enlaces[f - 1 + i] || null }]),
       setValues: v => v.forEach((fila, i) => fila.forEach((x, j) => { (filasAlumnos[f - 1 + i] = filasAlumnos[f - 1 + i] || [])[c - 1 + j] = x; })),
@@ -56,7 +57,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
   });
   vm.runInContext(CODIGO + '\n;this.__api = { leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, doGet, idDePlanilla_, generarClaves };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
-  return { api: ctx.__api, get, lecturas, cache: celdasCache, filas: filasAlumnos, avisos };
+  return { api: ctx.__api, get, lecturas, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
 
 // ---- lectura de pestañas ----
@@ -162,12 +163,16 @@ test('claves mal formadas, inventadas o vacías no devuelven nada', () => {
   assert.equal(get({ accion: 'otra', clave: CLAVE_A }).ok, false);
 });
 
-test('tras demasiados intentos inventados se frena aun con una clave válida', () => {
+test('probar muchas claves inventadas no bloquea a un alumno con su clave válida', () => {
   const { get } = entorno({ alumnos, planillas });
-  for (let i = 0; i < 30; i++) get({ accion: 'progreso', clave: 'x'.repeat(24) });
-  const r = get({ accion: 'progreso', clave: CLAVE_A });
-  assert.equal(r.ok, false);
-  assert.match(r.error, /Demasiados intentos/);
+  for (let i = 0; i < 500; i++) assert.equal(get({ accion: 'progreso', clave: 'x'.repeat(23) + (i % 10) }).ok, false);
+  assert.equal(get({ accion: 'progreso', clave: CLAVE_A }).ok, true);
+});
+
+test('las claves inventadas no leen la planilla de alumnos cada vez', () => {
+  const { get, lecturasAlumnos } = entorno({ alumnos, planillas });
+  for (let i = 0; i < 50; i++) get({ accion: 'progreso', clave: 'y'.repeat(23) + (i % 10) });
+  assert.ok(lecturasAlumnos.n <= 2, `se leyó ${lecturasAlumnos.n} veces`); // la lista queda en memoria
 });
 
 test('la segunda consulta usa la memoria y no vuelve a abrir la planilla', () => {

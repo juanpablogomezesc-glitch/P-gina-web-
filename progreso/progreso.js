@@ -174,7 +174,7 @@
     const c = x => x ? `${fmtNum(x.kg)}<small>${peso ? fmtRel(x.kg / peso) + ' × peso' : 'Semana ' + x.semana}</small>` : '—';
     const h = document.createElement('h2'); h.textContent = 'Mejores marcas'; det.appendChild(h);
     const caja2 = document.createElement('div'); caja2.className = 'tabla-caja';
-    caja2.innerHTML = `<table><caption style="position:absolute;left:-9999px">Mejor peso de ${ejercicio} con al menos 1, 3, 5 y 8 repeticiones</caption><thead><tr><th>Repeticiones</th><th>Mejor peso (kg)</th><th>Semana</th></tr></thead><tbody>${[1, 3, 5, 8].map(n => `<tr><td>${n} o más</td><td>${m[n] ? fmtNum(m[n].kg) + (peso ? `<small>${fmtRel(m[n].kg / peso)} × tu peso</small>` : '') : '—'}</td><td>${m[n] ? m[n].semana : '—'}</td></tr>`).join('')}</tbody></table>`;
+    caja2.innerHTML = `<table><caption style="position:absolute;left:-9999px">Mejor peso de ${ejercicio} con al menos 1, 3, 5 y 8 repeticiones</caption><thead><tr><th>Reps</th><th>Mejor peso</th><th>Semana</th></tr></thead><tbody>${[1, 3, 5, 8].map(n => `<tr><td>${n}+</td><td>${m[n] ? fmtNum(m[n].kg) + (peso ? `<small>${fmtRel(m[n].kg / peso)} × tu peso</small>` : '') : '—'}</td><td>${m[n] ? m[n].semana : '—'}</td></tr>`).join('')}</tbody></table>`;
     det.appendChild(caja2);
   }
 
@@ -197,12 +197,14 @@
     document.getElementById('aviso-demo').hidden = true;
     estado.hidden = false; estado.textContent = 'Cargando tu progreso…';
     if (!API_URL) { estado.textContent = 'El dashboard todavía no está conectado.'; return; }
-    fetch(`${API_URL}?accion=progreso&clave=${encodeURIComponent(clave)}`)
+    // referrerPolicy y credentials: la clave va en la dirección, así que no se manda a ningún otro lado
+    fetch(`${API_URL}?accion=progreso&clave=${encodeURIComponent(clave)}`, { referrerPolicy: 'no-referrer', credentials: 'omit' })
       .then(r => r.json())
       .then(r => {
-        if (!r.ok) { estado.textContent = r.error || 'No se pudo cargar.'; return; }
-        datos = { series: r.series, asistencia: r.asistencia }; objetivos = r.objetivos || {};
-        if (r.nombre) document.getElementById('titulo').textContent = 'Hola, ' + r.nombre.split(' ')[0];
+        if (!r || r.ok !== true) { estado.textContent = (r && typeof r.error === 'string' && r.error.slice(0, 200)) || 'No se pudo cargar.'; return; }
+        const limpio = P.limpiarRespuesta(r);
+        datos = { series: limpio.series, asistencia: limpio.asistencia }; objetivos = limpio.objetivos;
+        if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
         estado.hidden = true;
         render();
       })

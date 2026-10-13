@@ -41,7 +41,7 @@ En Apps Script, dentro de la función `probarLectura`, pegá entre las comillas 
 4. Copiá el link de la última columna y se lo mandás.
 
 ## Si un link se filtra o un alumno se va
-Borrá la clave de esa fila (y ejecutá **generarClaves** si querés uno nuevo). El link viejo deja de funcionar al instante.
+Borrá la clave de esa fila (y ejecutá **generarClaves** si querés uno nuevo). El link viejo deja de funcionar en un minuto como máximo (el script guarda la lista de alumnos ese tiempo para ir más rápido).
 
 ## Si cambiás el código más adelante
 Pegá la versión nueva, guardá y hacé **Implementar > Administrar implementaciones > editar (lápiz) > Versión: Nueva versión**. La URL no cambia.

@@ -15,7 +15,7 @@ const PAGINA = 'https://juanpablogomezesc-glitch.github.io/P-gina-web-/progreso.
 const EJERCICIOS_DASHBOARD = ['Sentadilla C/B', 'Press plano C/B', 'Despegue C/B', 'Hip Trust C/B'];
 const SEMANAS_MAXIMO = 200;          // tope de pestañas "Semana N" que se leen por alumno
 const SEGUNDOS_EN_MEMORIA = 300;     // una consulta repetida en 5 minutos no vuelve a leer la planilla
-const FALLOS_MAXIMOS_10_MIN = 30;    // si se prueban demasiadas claves inventadas, se frena todo un rato
+const SEGUNDOS_LISTA_ALUMNOS = 60;   // la lista de alumnos se lee de la planilla a lo sumo una vez por minuto (también es lo que tarda en valer una clave borrada)
 // ======================
 
 const HOJA_ALUMNOS = 'Alumnos';
@@ -191,10 +191,19 @@ function generarClaves() {
   if (!alumnos.length) ss.toast('No hay filas con datos debajo de los títulos de la pestaña "Alumnos".', 'Progreso', 15);
 }
 
-function buscarAlumno_(clave) {
+/** Alumnos con clave y planilla válidas. Se guarda un minuto en memoria: así probar claves inventadas casi no cuesta nada. */
+function listaAlumnos_() {
+  const memoria = CacheService.getScriptCache();
+  const guardada = memoria.get('alumnos');
+  if (guardada) return JSON.parse(guardada);
   const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_ALUMNOS);
-  if (!hoja) return null;
-  const a = leerAlumnos_(hoja).find(x => x.clave === clave);
+  const lista = hoja ? leerAlumnos_(hoja).filter(a => a.clave && a.planilla).map(a => ({ clave: a.clave, nombre: a.nombre, planilla: a.planilla })) : [];
+  try { memoria.put('alumnos', JSON.stringify(lista), SEGUNDOS_LISTA_ALUMNOS); } catch (err) { /* sin memoria: se lee cada vez */ }
+  return lista;
+}
+
+function buscarAlumno_(clave) {
+  const a = listaAlumnos_().find(x => x.clave === clave);
   return a ? { nombre: a.nombre, planilla: a.planilla } : null;
 }
 
@@ -206,17 +215,13 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.accion !== 'progreso') return respuesta_({ ok: false, error: 'Acción desconocida.' });
 
-  const memoria = CacheService.getScriptCache();
-  const fallos = +(memoria.get('fallos') || 0);
-  if (fallos >= FALLOS_MAXIMOS_10_MIN) return respuesta_({ ok: false, error: 'Demasiados intentos. Probá de nuevo en unos minutos.' });
-
+  // La clave tiene 24 caracteres al azar (unos 2^138 combinaciones): no se puede adivinar, así que no hace falta
+  // bloquear a nadie por probar claves (un bloqueo general lo podría usar cualquiera para dejar sin servicio a todos).
   const clave = String(p.clave || '');
   const alumno = /^[a-zA-Z0-9]{24}$/.test(clave) ? buscarAlumno_(clave) : null;
-  if (!alumno || !alumno.planilla) {
-    memoria.put('fallos', String(fallos + 1), 600);
-    return respuesta_({ ok: false, error: 'El link no es válido. Pedile uno nuevo a tu entrenador.' });
-  }
+  if (!alumno) return respuesta_({ ok: false, error: 'El link no es válido. Pedile uno nuevo a tu entrenador.' });
 
+  const memoria = CacheService.getScriptCache();
   const guardado = memoria.get('p_' + clave);
   if (guardado) return ContentService.createTextOutput(guardado).setMimeType(ContentService.MimeType.JSON);
 
@@ -224,6 +229,7 @@ function doGet(e) {
   try {
     datos = leerPlanilla_(SpreadsheetApp.openById(alumno.planilla));
   } catch (err) {
+    Logger.log(`No se pudo leer la planilla de ${alumno.nombre}: ${err}`);
     return respuesta_({ ok: false, error: 'No pude leer tu planilla. Avisale a tu entrenador.' });
   }
   const texto = JSON.stringify({ ok: true, nombre: alumno.nombre, ...datos });

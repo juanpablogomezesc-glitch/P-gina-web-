@@ -52,3 +52,9 @@
 .progreso-barra span { display: block; height: 100%; background: var(--acento); border-radius: 999px; }
 .pr-dias .vacio { color: var(--suave); }
 .pr-dias { align-items: start; }
+
+/* Celular y tablet: sin demora ni destello al tocar, textos largos que no rompen el diseño */
+.progreso button, .progreso input { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.progreso h1 { overflow-wrap: anywhere; }
+.grafico h3, .dato .rotulo { overflow-wrap: anywhere; }
+@media (hover: hover) { .filtros button:not([aria-pressed="true"]):hover { color: var(--texto); border-color: #555; } }

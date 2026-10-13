@@ -102,6 +102,39 @@
     return [...porSemana.values()].filter(n => n >= minimo).length;
   }
 
-  return { EJERCICIOS, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
+  // ---- Validación de lo que llega del script central (nunca se confía en el formato) ----
+
+  const FECHA_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
+  function fechaValida(t) {
+    const m = typeof t === 'string' && FECHA_ISO.exec(t);
+    if (!m) return false;
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+  }
+
+  /** Deja solo datos con la forma esperada: lo demás se descarta en silencio. Devuelve { nombre, series, asistencia, objetivos }. */
+  function limpiarRespuesta(r) {
+    const x = r && typeof r === 'object' ? r : {};
+    const lista = v => (Array.isArray(v) ? v : []);
+    const nombres = new Map(EJERCICIOS.map(e => [clave(e), e]));
+    const series = lista(x.series).map(s => {
+      const ej = s && typeof s.ejercicio === 'string' ? nombres.get(clave(s.ejercicio)) : null;
+      return ej && Number.isInteger(s.semana) && s.semana > 0 && s.semana < 10000 && typeof s.kg === 'number' && s.kg > 0 && s.kg <= 1000 &&
+        Number.isInteger(s.reps) && s.reps >= 1 && s.reps <= 100 ? { semana: s.semana, ejercicio: ej, kg: s.kg, reps: s.reps } : null;
+    }).filter(Boolean);
+    const asistencia = [...new Set(lista(x.asistencia).filter(fechaValida))].sort();
+    const objetivos = {};
+    if (x.objetivos && typeof x.objetivos === 'object') {
+      Object.keys(x.objetivos).forEach(k => {
+        const v = x.objetivos[k];
+        if (/^\d{4}-(0[1-9]|1[0-2])$/.test(k) && typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 31) objetivos[k] = v;
+      });
+    }
+    // eslint-disable-next-line no-control-regex
+    const nombre = typeof x.nombre === 'string' ? x.nombre.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().split(/\s+/)[0].slice(0, 30) : '';
+    return { nombre, series, asistencia, objetivos };
+  }
+
+  return { EJERCICIOS, limpiarRespuesta, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
     mejoresPorReps, resumenEjercicio, desdeUltimasSemanas, diasEntrenados, diasPorMes, semanasCompletas };
 });

@@ -95,3 +95,31 @@ test('semana completa: 3 días o más entre lunes y domingo, sin contar dos vece
   assert.strictEqual(P.semanasCompletas(fechas), 1);
   assert.strictEqual(P.semanasCompletas(fechas, 2), 3);
 });
+
+test('limpiarRespuesta descarta lo que no tiene la forma esperada y no deja pasar texto raro', () => {
+  const r = P.limpiarRespuesta({
+    nombre: '  <img src=x onerror=alert(1)> Pérez  ',
+    series: [
+      { semana: 99, ejercicio: 'sentadilla  c/b ', kg: 100, reps: 5 },     // válida (se normaliza el nombre)
+      { semana: 99, ejercicio: 'Sentadilla C/B', kg: -5, reps: 5 },        // kg negativo
+      { semana: 99, ejercicio: 'Sentadilla C/B', kg: 100, reps: 0 },       // reps 0
+      { semana: '99', ejercicio: 'Sentadilla C/B', kg: 100, reps: 5 },     // semana como texto
+      { semana: 99, ejercicio: '<b>Hack</b>', kg: 100, reps: 5 },          // ejercicio que no es de los 4
+      { semana: 99, ejercicio: 'Sentadilla C/B', kg: 1e9, reps: 5 },       // peso imposible
+      null, 'x', { kg: 1 },
+    ],
+    asistencia: ['2026-10-05', '2026-10-05', '2026-02-30', 'hoy', 5, '2026-1-5', '<script>'],
+    objetivos: { '2026-10': 15, '2026-13': 10, '2026-09': 0, '2026-08': '12', 'x': 3 },
+  });
+  assert.equal(r.series.length, 1);
+  assert.equal(r.series[0].ejercicio, 'Sentadilla C/B');
+  assert.deepEqual(r.asistencia, ['2026-10-05']);
+  assert.deepEqual(r.objetivos, { '2026-10': 15 });
+  assert.equal(r.nombre, '<img'); // solo la primera palabra; igual se muestra como texto, nunca como HTML
+});
+
+test('limpiarRespuesta aguanta respuestas vacías o de otro tipo', () => {
+  for (const x of [null, undefined, 5, 'hola', [], {}, { series: 'x', asistencia: {}, objetivos: [] }]) {
+    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], asistencia: [], objetivos: {} });
+  }
+});
