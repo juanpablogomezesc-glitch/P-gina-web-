@@ -272,3 +272,25 @@ function probarLectura() {
   Logger.log(`Semanas leídas: ${[...new Set(d.series.map(s => s.semana))].join(', ')}`);
   Logger.log(`Días tildados: ${d.asistencia.length} · Objetivos: ${JSON.stringify(d.objetivos)}`);
 }
+
+/**
+ * Mide cuánto tarda cada paso al leer una planilla (la tuya o la de un alumno), para saber dónde se va el tiempo.
+ * Pegá el link entre las comillas de abajo, ejecutá medirTiempos y mirá Ver > Registros de ejecución.
+ */
+const LINK_PARA_MEDIR = '';
+
+function medirTiempos(entrada) {
+  const id = idDePlanilla_(entrada || LINK_PARA_MEDIR);
+  if (!id) throw new Error('Pegá el link de una planilla en LINK_PARA_MEDIR, arriba de la función medirTiempos.');
+  const lineas = [];
+  const paso = (nombre, fn) => { const t = Date.now(); const r = fn(); lineas.push(`${nombre}: ${Date.now() - t} ms`); return r; };
+  const inicio = Date.now();
+  const ss = paso('Abrir la planilla', () => SpreadsheetApp.openById(id));
+  const hojas = paso('Listar las pestañas', () => ss.getSheets());
+  paso(`Leer el nombre de ${hojas.length} pestañas`, () => hojas.map(h => h.getName()));
+  const datos = paso('Lectura completa (lo que hace el dashboard)', () => leerPlanilla_(ss));
+  lineas.push(`Series leídas: ${datos.series.length} · días tildados: ${datos.asistencia.length}`);
+  lineas.push(`TOTAL: ${Date.now() - inicio} ms`);
+  Logger.log(lineas.join('\n'));
+  return lineas;
+}

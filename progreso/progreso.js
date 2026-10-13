@@ -243,12 +243,37 @@
   const cajaEstado = document.getElementById('pr-estado');
   const txtActualizado = document.getElementById('actualizado');
   const btnActualizar = document.getElementById('btn-actualizar');
-  const pintarActualizado = () => { if (actualizadoIso) txtActualizado.textContent = 'Actualizado ' + P.haceCuanto(actualizadoIso, Date.now()); };
   let hayCargado = false;
+  let refrescando = false;
+  const pintarActualizado = () => {
+    if (!actualizadoIso) return;
+    txtActualizado.textContent = 'Actualizado ' + P.haceCuanto(actualizadoIso, Date.now()) + (refrescando ? ' · actualizando…' : '');
+  };
+
+  // La última respuesta queda guardada en este dispositivo: la próxima vez se ve al instante y se actualiza de fondo.
+  const hashCorto = t => { let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+  const llaveGuardado = clave ? 'pr-datos-' + hashCorto(clave) : '';
+  function leerGuardado() {
+    try {
+      const g = JSON.parse(localStorage.getItem(llaveGuardado));
+      const limpio = g && typeof g === 'object' ? P.limpiarRespuesta(g) : null;
+      return limpio && (limpio.series.length || limpio.asistencia.length) ? limpio : null;
+    } catch (e) { return null; }
+  }
+  function guardar(limpio) { try { localStorage.setItem(llaveGuardado, JSON.stringify(limpio)); } catch (e) {} }
+
+  function aplicar(limpio) {
+    datos = { series: limpio.series, asistencia: limpio.asistencia }; objetivos = limpio.objetivos;
+    actualizadoIso = limpio.actualizado || new Date().toISOString();
+    if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
+    hayCargado = true; document.getElementById('estado-carga').hidden = true; cajaEstado.hidden = false;
+    render(); pintarActualizado();
+  }
 
   function cargar(fresco) {
     const estado = document.getElementById('estado-carga');
     btnActualizar.disabled = true; btnActualizar.textContent = 'Actualizando…';
+    refrescando = true; pintarActualizado();
     // referrerPolicy y credentials: la clave va en la dirección, así que no se manda a ningún otro lado
     return fetch(`${API_URL}?accion=progreso&clave=${encodeURIComponent(clave)}${fresco ? '&fresco=1' : ''}`, { referrerPolicy: 'no-referrer', credentials: 'omit' })
       .then(r => r.json())
@@ -259,27 +284,24 @@
           return;
         }
         const limpio = P.limpiarRespuesta(r);
-        datos = { series: limpio.series, asistencia: limpio.asistencia }; objetivos = limpio.objetivos;
-        actualizadoIso = limpio.actualizado || new Date().toISOString();
-        if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
-        hayCargado = true; estado.hidden = true; cajaEstado.hidden = false;
-        render(); pintarActualizado();
+        guardar(limpio); aplicar(limpio);
       })
       .catch(() => {
-        if (hayCargado) txtActualizado.textContent = 'No pudimos actualizar. Revisá tu conexión.';
+        if (hayCargado) txtActualizado.textContent = 'No pudimos actualizar. Mostrando lo último que se guardó. Revisá tu conexión.';
         else estado.textContent = 'No pudimos cargar tus datos. Revisá tu conexión e intentá de nuevo.';
       })
-      .finally(() => { btnActualizar.disabled = false; btnActualizar.textContent = 'Actualizar'; });
+      .finally(() => { refrescando = false; btnActualizar.disabled = false; btnActualizar.textContent = 'Actualizar'; if (!/^No pudimos/.test(txtActualizado.textContent)) pintarActualizado(); });
   }
 
   function arrancar() {
     if (!clave) { render(); return; }
     const estado = document.getElementById('estado-carga');
     document.getElementById('aviso-demo').hidden = true;
-    estado.hidden = false; estado.textContent = 'Cargando tu progreso…';
-    if (!API_URL) { estado.textContent = 'El dashboard todavía no está conectado.'; return; }
+    if (!API_URL) { estado.hidden = false; estado.textContent = 'El dashboard todavía no está conectado.'; return; }
     btnActualizar.addEventListener('click', () => cargar(true));
     setInterval(pintarActualizado, 30000);
+    const guardado = leerGuardado();
+    if (guardado) aplicar(guardado); else { estado.hidden = false; estado.textContent = 'Cargando tu progreso…'; }
     cargar(false);
   }
   arrancar();

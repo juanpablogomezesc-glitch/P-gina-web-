@@ -55,7 +55,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) ? celdasCache.get(k) : null), put: (k, v) => celdasCache.set(k, v) }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, doGet, idDePlanilla_, generarClaves };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -305,4 +305,12 @@ test('la pestaña "Control Mensual (anterior)" no suma días', () => {
   const { api } = entorno();
   const r = api.leerPlanilla_(planilla([calendarioControlMensual('Control Mensual (anterior)')]));
   assert.deepEqual(Array.from(r.asistencia), []);
+});
+
+test('medirTiempos informa cada paso y el total, y pide una planilla si falta', () => {
+  const { api } = entorno({ planillas: { [ID_A]: planilla([semana(1, [fila('Sentadilla C/B', 1, 5, 60)]), calendarioControlMensual('Control Mensual')]) } });
+  const lineas = api.medirTiempos(ID_A);
+  const texto = Array.from(lineas).join('\n');
+  for (const paso of ['Abrir la planilla', 'Listar las pestañas', 'Leer el nombre de 2 pestañas', 'Lectura completa', 'Series leídas: 1 · días tildados: 4', 'TOTAL']) assert.ok(texto.includes(paso), paso);
+  assert.throws(() => api.medirTiempos(''), /Pegá el link/);
 });
