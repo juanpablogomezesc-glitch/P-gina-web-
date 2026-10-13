@@ -4,7 +4,7 @@ Se instala **una sola vez**. Las planillas de los alumnos no llevan ningún cód
 
 ## Cómo funciona
 - Cada alumno tiene un **link personal** (por ejemplo `.../progreso.html?c=AbCd...`). La parte `c=` es una clave secreta de 24 caracteres: funciona como una contraseña. Quien no tenga el link no ve nada.
-- El script lee las pestañas "Semana N" (desde la más nueva hacia atrás, hasta que aparece una con el formato viejo) y el calendario "Asistencia AAAA".
+- El script lee las pestañas "Semana N" (desde la más nueva hacia atrás, hasta que aparece una con el formato viejo) y el calendario de asistencia (la pestaña "Control Mensual", o "Asistencia AAAA").
 - Solo devuelve los 4 ejercicios del dashboard, las fechas de asistencia y los objetivos. No devuelve emails, ni el ID de la planilla, ni nada de otros alumnos.
 
 ## Qué permisos pide, y por qué

@@ -55,7 +55,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) ? celdasCache.get(k) : null), put: (k, v) => celdasCache.set(k, v) }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, doGet, idDePlanilla_, generarClaves };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, doGet, idDePlanilla_, generarClaves };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -273,4 +273,36 @@ test('"fresco" con una clave inválida no devuelve nada ni lee planillas', () =>
   const r = get({ accion: 'progreso', clave: 'z'.repeat(24), fresco: '1' });
   assert.equal(r.ok, false);
   assert.equal(lecturas.n, 0);
+});
+
+// ---- la pestaña "Control Mensual" (la que usan los alumnos) ----
+const calendarioControlMensual = nombre => hoja(nombre, [
+  [new Date(2026, 9, 1), '', '', '', '', '', '', '', 'Objetivo', 'Realizados'],              // título: una fecha mostrada como mes
+  ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM', '', 16],                                  // encabezado + objetivo en la columna I
+  ['', '', '', new Date(2026, 9, 1), new Date(2026, 9, 2), new Date(2026, 9, 3), new Date(2026, 9, 4)],
+  ['', '', '', true, false, true, false],
+  [new Date(2026, 9, 5), new Date(2026, 9, 6)],
+  [true, true],
+]);
+
+test('las pestañas "Control Mensual" y "Asistencia AAAA" cuentan; "Control Mensual (anterior)" no', () => {
+  const { api } = entorno();
+  assert.equal(api.esHojaAsistencia_('Control Mensual'), true);
+  assert.equal(api.esHojaAsistencia_(' control mensual '), true);
+  assert.equal(api.esHojaAsistencia_('Asistencia 2026'), true);
+  assert.equal(api.esHojaAsistencia_('Control Mensual (anterior)'), false);
+  assert.equal(api.esHojaAsistencia_('Semana 5'), false);
+});
+
+test('lee los días tildados y el objetivo de "Control Mensual", con el título del mes como fecha', () => {
+  const { api } = entorno();
+  const r = api.leerPlanilla_(planilla([semana(1, [fila('Sentadilla C/B', 1, 5, 60)]), calendarioControlMensual('Control Mensual')]));
+  assert.deepEqual(Array.from(r.asistencia), ['2026-10-01', '2026-10-03', '2026-10-05', '2026-10-06']);
+  assert.deepEqual(JSON.parse(JSON.stringify(r.objetivos)), { '2026-10': 16 });
+});
+
+test('la pestaña "Control Mensual (anterior)" no suma días', () => {
+  const { api } = entorno();
+  const r = api.leerPlanilla_(planilla([calendarioControlMensual('Control Mensual (anterior)')]));
+  assert.deepEqual(Array.from(r.asistencia), []);
 });

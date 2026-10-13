@@ -65,7 +65,7 @@ function leerSemana_(filas) {
   return series;
 }
 
-/** Fechas tildadas ('AAAA-MM-DD') de una pestaña "Asistencia AAAA": cada casillero está debajo de su fecha. */
+/** Fechas tildadas ('AAAA-MM-DD') de la pestaña del calendario: cada casillero está justo debajo de su fecha. */
 function fechasMarcadas_(valores) {
   const fechas = [];
   for (let f = 0; f + 1 < valores.length; f++) {
@@ -79,20 +79,32 @@ function fechasMarcadas_(valores) {
   return fechas.sort();
 }
 
-/** Objetivo de cada mes: {'2026-10': 12}. El título "OCTUBRE 2026" tiene debajo, en la columna I, el objetivo. */
+/**
+ * Objetivo de cada mes: {'2026-10': 12}. Cada mes empieza con un título y, en la fila de abajo, el objetivo en la columna I.
+ * El título puede ser un texto ("OCTUBRE 2026") o una fecha mostrada como mes (así quedó en "Control Mensual").
+ */
 function objetivosMensuales_(valores) {
   const MESES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+  const dos = n => String(n).padStart(2, '0');
   const objetivos = {};
   valores.forEach((fila, i) => {
-    const m = /^([A-ZÁÉÍÓÚ]+)\s+(\d{4})$/.exec(String(fila[0]).trim());
-    const mes = m ? MESES.indexOf(m[1]) : -1;
+    const titulo = fila[0];
+    let mes = null;
+    if (titulo instanceof Date) mes = `${titulo.getFullYear()}-${dos(titulo.getMonth() + 1)}`;
+    else {
+      const m = /^([A-ZÁÉÍÓÚ]+)\s+(\d{4})$/.exec(String(titulo).trim());
+      if (m && MESES.indexOf(m[1]) >= 0) mes = `${m[2]}-${dos(MESES.indexOf(m[1]) + 1)}`;
+    }
     const meta = valores[i + 1] && numero_(valores[i + 1][8]);
-    if (mes >= 0 && meta > 0) objetivos[`${m[2]}-${String(mes + 1).padStart(2, '0')}`] = meta;
+    if (mes && meta > 0) objetivos[mes] = meta;
   });
   return objetivos;
 }
 
 // ---------- Lectura de la planilla de un alumno ----------
+
+/** Las pestañas con el calendario de tildes: "Control Mensual" (la que usan los alumnos) o "Asistencia AAAA". No cuenta "Control Mensual (anterior)". */
+const esHojaAsistencia_ = nombre => /^(Control Mensual|Asistencia\s+\d{4})\s*$/i.test(String(nombre));
 
 /** Devuelve { series, asistencia, objetivos } de una planilla abierta. Solo los ejercicios del dashboard. */
 function leerPlanilla_(ss) {
@@ -100,9 +112,9 @@ function leerPlanilla_(ss) {
   const semanas = [], asistencias = [];
   hojas.forEach(h => {
     const nombre = h.getName();
-    let m = /^Semana\s+(\d+)\s*$/i.exec(nombre);
+    const m = /^Semana\s+(\d+)\s*$/i.exec(nombre);
     if (m) semanas.push({ n: +m[1], hoja: h });
-    else if ((m = /^Asistencia\s+(\d{4})\s*$/i.exec(nombre))) asistencias.push(h);
+    else if (esHojaAsistencia_(nombre)) asistencias.push(h);
   });
   semanas.sort((a, b) => b.n - a.n); // de la más nueva a la más vieja
 
