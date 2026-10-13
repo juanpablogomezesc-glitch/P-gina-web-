@@ -58,3 +58,16 @@
 .progreso h1 { overflow-wrap: anywhere; }
 .grafico h3, .dato .rotulo { overflow-wrap: anywhere; }
 @media (hover: hover) { .filtros button:not([aria-pressed="true"]):hover { color: var(--texto); border-color: #555; } }
+
+/* Mensaje, récords nuevos y "última actualización" */
+.progreso .pr-mensaje { margin-top: 12px; padding: 14px 16px; background: var(--acento-suave); border: 1px solid rgba(255, 107, 26, .35); border-left: 4px solid var(--acento); border-radius: 10px; }
+.mensaje-texto { font-weight: 600; line-height: 1.4; }
+.mensaje-records { list-style: none; margin-top: 8px; display: grid; gap: 4px; color: var(--suave); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.mensaje-records li { color: var(--texto); }
+.dato .delta.record { color: var(--acento); font-weight: 600; }
+.pr-estado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: -6px 0 16px; color: var(--suave); font-size: .85rem; }
+.pr-estado button { font: 600 .82rem var(--fuente-texto); color: var(--texto); background: none; border: 1px solid var(--borde); border-radius: 999px; padding: 8px 14px; min-height: 40px; cursor: pointer; transition: border-color .15s var(--ease-out), opacity .15s var(--ease-out); }
+.pr-estado button:disabled { opacity: .55; cursor: default; }
+.pr-estado button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+@media (hover: hover) { .pr-estado button:not(:disabled):hover { border-color: var(--acento); } }
+.progreso .mensaje-texto { color: var(--texto); }

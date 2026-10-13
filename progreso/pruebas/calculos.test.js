@@ -120,6 +120,83 @@ test('limpiarRespuesta descarta lo que no tiene la forma esperada y no deja pasa
 
 test('limpiarRespuesta aguanta respuestas vacías o de otro tipo', () => {
   for (const x of [null, undefined, 5, 'hola', [], {}, { series: 'x', asistencia: {}, objetivos: [] }]) {
-    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], asistencia: [], objetivos: {} });
+    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], asistencia: [], objetivos: {}, actualizado: '' });
   }
+});
+
+// ---- récords, cambio semanal, racha, mensajes, "hace cuánto" ----
+
+test('nuevo récord: solo si la última semana supera todo lo anterior (un solo dato no cuenta)', () => {
+  const base = [s(1, 'Sentadilla C/B', 100, 5), s(2, 'Sentadilla C/B', 110, 3)];
+  assert.equal(P.nuevoRecord(base, 'Sentadilla C/B').kg, 110);
+  assert.equal(P.nuevoRecord(base, 'Sentadilla C/B').anterior, 100);
+  assert.equal(P.nuevoRecord([...base, s(3, 'Sentadilla C/B', 105, 5)], 'Sentadilla C/B'), null);   // la última semana no superó los 110
+  assert.equal(P.nuevoRecord([...base, s(3, 'Sentadilla C/B', 110, 8)], 'Sentadilla C/B'), null);   // igualar no es récord
+  assert.equal(P.nuevoRecord([s(1, 'Sentadilla C/B', 100, 5)], 'Sentadilla C/B'), null);            // primer dato: nada con qué comparar
+  assert.equal(P.nuevoRecord(base, 'Despegue C/B'), null);
+  const dos = P.nuevoRecord([...base, s(3, 'Sentadilla C/B', 115, 1), s(3, 'Sentadilla C/B', 120, 1)], 'Sentadilla C/B');
+  assert.deepEqual([dos.kg, dos.semana, dos.anterior], [120, 3, 110]);
+});
+
+test('récords recientes: solo los de la última semana con datos o la anterior', () => {
+  const series = [
+    s(1, 'Sentadilla C/B', 100, 5), s(8, 'Sentadilla C/B', 110, 5),   // récord, pero viejo (dos semanas antes de la última)
+    s(1, 'Despegue C/B', 100, 5), s(10, 'Despegue C/B', 130, 3),      // récord de la última semana
+    s(9, 'Press plano C/B', 60, 5), s(10, 'Press plano C/B', 70, 5),  // primer dato en la 9, récord en la 10
+  ];
+  const r = P.recordsRecientes(series);
+  assert.deepEqual(r.map(x => x.ejercicio).sort(), ['Despegue C/B', 'Press plano C/B']);
+  assert.deepEqual(P.recordsRecientes([]), []);
+});
+
+test('cambio semanal del 1RM entre las dos últimas semanas con datos', () => {
+  const series = [s(97, 'Despegue C/B', 120, 5), s(99, 'Despegue C/B', 130, 5), s(100, 'Despegue C/B', 135, 5)];
+  const c = P.cambioSemanal(series, 'Despegue C/B');
+  assert.deepEqual([c.anteriorSemana, c.semana, c.actual, c.anterior, c.diferencia], [99, 100, 157.5, 151.5, 6]); // 135×5 → 157,5 · 130×5 → 151,5 (Epley, a 0,5)
+  assert.equal(P.cambioSemanal([s(1, 'Despegue C/B', 100, 5)], 'Despegue C/B'), null);
+});
+
+test('racha: semanas completas seguidas; la semana en curso no corta la racha hasta que termina', () => {
+  // semanas del 5/10, 12/10 y 19/10 con 3 días cada una; el 26/10 hay un día
+  const fechas = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-19', '2026-10-20', '2026-10-21', '2026-10-26'];
+  assert.deepEqual(P.rachaSemanas(fechas, '2026-10-27'), { racha: 3, diasSemanaActual: 1, faltan: 2 }); // la semana del 26 va por 1 día: no corta
+  assert.equal(P.rachaSemanas([...fechas, '2026-10-28', '2026-10-30'], '2026-10-30').racha, 4);         // la completó: suma
+  assert.equal(P.rachaSemanas(fechas, '2026-11-09').racha, 0);                                           // dos semanas sin entrenar: se corta
+  assert.equal(P.rachaSemanas([], '2026-10-27').racha, 0);
+  const salto = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-19', '2026-10-20', '2026-10-21']; // falta la semana del 12
+  assert.equal(P.rachaSemanas(salto, '2026-10-21').racha, 1);
+});
+
+test('mensaje motivacional: prioridades y textos', () => {
+  const m = P.mensajeMotivacional;
+  assert.match(m({ hayDatos: false }), /Cuando empieces/);
+  assert.match(m({ objetivoCumplido: true, record: { ejercicio: 'Despegue C/B', kg: 150 } }), /objetivo del mes/);  // el objetivo gana al récord
+  assert.match(m({ record: { ejercicio: 'Despegue C/B', kg: 150 }, racha: 5, diasSemanaActual: 3 }), /Nuevo récord en Despegue: 150 kg/);
+  assert.match(m({ racha: 5, diasSemanaActual: 3, faltan: 0 }), /5 semanas seguidas entrenando/);
+  assert.match(m({ racha: 2, diasSemanaActual: 3, faltan: 0 }), /2 semanas seguidas\. Seguí/);
+  assert.equal(m({ racha: 1, diasSemanaActual: 3, faltan: 0 }), 'Semana completa. Buen trabajo.');
+  assert.match(m({ racha: 3, diasSemanaActual: 1, faltan: 2 }), /Llevás 3 semanas completas seguidas\. Te faltan 2 días/);
+  assert.match(m({ racha: 3, diasSemanaActual: 2, faltan: 1 }), /Te falta 1 día/);
+  assert.match(m({ racha: 0, diasSemanaActual: 1, faltan: 2 }), /Llevás 1 día esta semana\. Con 2 más/);
+  assert.match(m({ racha: 0, diasSemanaActual: 0 }), /nueva oportunidad/);
+  assert.doesNotMatch(m({ racha: 0, diasSemanaActual: 0 }), /undefined|NaN/);
+});
+
+test('"hace cuánto" en minutos, horas y días; fechas inválidas dan texto vacío', () => {
+  const ahora = Date.parse('2026-10-14T12:00:00Z');
+  assert.equal(P.haceCuanto('2026-10-14T11:59:40Z', ahora), 'hace un momento');
+  assert.equal(P.haceCuanto('2026-10-14T11:55:00Z', ahora), 'hace 5 min');
+  assert.equal(P.haceCuanto('2026-10-14T09:00:00Z', ahora), 'hace 3 h');
+  assert.equal(P.haceCuanto('2026-10-13T11:00:00Z', ahora), 'hace 1 día');
+  assert.equal(P.haceCuanto('2026-10-10T12:00:00Z', ahora), 'hace 4 días');
+  assert.equal(P.haceCuanto('2026-10-14T13:00:00Z', ahora), 'hace un momento'); // un reloj adelantado no da números negativos
+  assert.equal(P.haceCuanto('nunca', ahora), '');
+  assert.equal(P.haceCuanto(undefined, ahora), '');
+});
+
+test('limpiarRespuesta conserva una fecha de actualización válida y descarta una inventada', () => {
+  assert.equal(P.limpiarRespuesta({ actualizado: '2026-10-14T12:00:00.000Z' }).actualizado, '2026-10-14T12:00:00.000Z');
+  assert.equal(P.limpiarRespuesta({ actualizado: 'ayer' }).actualizado, '');
+  assert.equal(P.limpiarRespuesta({ actualizado: '1999-01-01' }).actualizado, '');
+  assert.equal(P.limpiarRespuesta({ actualizado: 5 }).actualizado, '');
 });

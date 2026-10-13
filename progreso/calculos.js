@@ -102,6 +102,86 @@
     return [...porSemana.values()].filter(n => n >= minimo).length;
   }
 
+  // ---- Récords, cambio semanal, racha y mensajes ----
+
+  /**
+   * ¿Hubo un récord de peso en la última semana con datos del ejercicio? Es récord si supera todo lo levantado antes.
+   * Con un solo dato no hay con qué comparar, así que no cuenta. Devuelve { kg, reps, semana, anterior } o null.
+   */
+  function nuevoRecord(series, ejercicio) {
+    const propias = series.filter(s => es(s, ejercicio) && s.kg > 0 && s.reps >= 1);
+    if (!propias.length) return null;
+    const ultima = Math.max(...propias.map(s => s.semana));
+    const antes = propias.filter(s => s.semana < ultima);
+    if (!antes.length) return null;
+    const previo = Math.max(...antes.map(s => s.kg));
+    const nuevos = propias.filter(s => s.semana === ultima && s.kg > previo);
+    if (!nuevos.length) return null;
+    const mejor = nuevos.reduce((a, b) => (b.kg > a.kg || (b.kg === a.kg && b.reps > a.reps) ? b : a));
+    return { kg: mejor.kg, reps: mejor.reps, semana: ultima, anterior: previo };
+  }
+
+  /** Récords de los 4 ejercicios que ocurrieron en la última semana con datos (o la anterior): [{ ejercicio, kg, reps, semana, anterior }]. */
+  function recordsRecientes(series) {
+    if (!series.length) return [];
+    const ultima = Math.max(...series.map(s => s.semana));
+    return EJERCICIOS.map(ejercicio => ({ ejercicio, ...nuevoRecord(series, ejercicio) }))
+      .filter(r => r.kg && r.semana >= ultima - 1);
+  }
+
+  /** Cambio del 1RM estimado entre las dos últimas semanas con datos del ejercicio, o null si hay menos de dos. */
+  function cambioSemanal(series, ejercicio) {
+    const sem = rmPorSemana(series, ejercicio);
+    if (sem.length < 2) return null;
+    const a = sem[sem.length - 1], b = sem[sem.length - 2];
+    return { semana: a.semana, anteriorSemana: b.semana, actual: a.valor, anterior: b.valor, diferencia: Math.round((a.valor - b.valor) * 2) / 2 };
+  }
+
+  const restarSemana = iso => aIso(new Date(aFecha(iso).getTime() - 7 * DIA_MS));
+
+  /**
+   * Semanas completas seguidas. La semana en curso no corta la racha mientras no termine: si todavía no llegó a los días
+   * necesarios, se cuenta desde la anterior. Devuelve { racha, diasSemanaActual, faltan }. `hoy` es 'AAAA-MM-DD'.
+   */
+  function rachaSemanas(fechas, hoy, minimo = DIAS_PARA_SEMANA_COMPLETA) {
+    const porSemana = new Map();
+    [...new Set(fechas)].forEach(f => { const l = lunes(f); porSemana.set(l, (porSemana.get(l) || 0) + 1); });
+    const actual = lunes(hoy);
+    const diasSemanaActual = porSemana.get(actual) || 0;
+    let cursor = diasSemanaActual >= minimo ? actual : restarSemana(actual);
+    let racha = 0;
+    while ((porSemana.get(cursor) || 0) >= minimo) { racha++; cursor = restarSemana(cursor); }
+    return { racha, diasSemanaActual, faltan: Math.max(0, minimo - diasSemanaActual) };
+  }
+
+  /** Un mensaje corto según cómo viene la persona. Sin promesas ni comparaciones con otros. */
+  function mensajeMotivacional({ racha = 0, diasSemanaActual = 0, faltan = DIAS_PARA_SEMANA_COMPLETA, objetivoCumplido = false, record = null, hayDatos = true } = {}) {
+    if (!hayDatos) return 'Cuando empieces a entrenar, vas a ver acá tu progreso.';
+    if (objetivoCumplido) return 'Cumpliste el objetivo del mes. Eso es constancia.';
+    if (record) return `Nuevo récord en ${record.ejercicio.replace(/ C\/B$/, '')}: ${record.kg} kg. Es fruto de semanas de trabajo.`;
+    if (diasSemanaActual >= DIAS_PARA_SEMANA_COMPLETA) {
+      return racha >= 4 ? `${racha} semanas seguidas entrenando. La fuerza se construye con constancia.`
+        : racha >= 2 ? `${racha} semanas seguidas. Seguí con este ritmo.` : 'Semana completa. Buen trabajo.';
+    }
+    if (racha >= 2) return `Llevás ${racha} semanas completas seguidas. ${faltan === 1 ? 'Te falta 1 día' : `Te faltan ${faltan} días`} para sumar esta.`;
+    if (diasSemanaActual > 0) return `Llevás ${diasSemanaActual} ${diasSemanaActual === 1 ? 'día' : 'días'} esta semana. Con ${faltan} más la completás.`;
+    return 'Cada semana es una nueva oportunidad. Te esperamos en el próximo entrenamiento.';
+  }
+
+  /** "hace 5 min", "hace 2 h", "hace 3 días". Devuelve '' si la fecha no sirve. */
+  function haceCuanto(iso, ahoraMs) {
+    const t = Date.parse(iso);
+    if (!isFinite(t)) return '';
+    const seg = Math.max(0, Math.round((ahoraMs - t) / 1000));
+    if (seg < 60) return 'hace un momento';
+    const min = Math.round(seg / 60);
+    if (min < 60) return `hace ${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 24) return `hace ${h} h`;
+    const d = Math.round(h / 24);
+    return `hace ${d} ${d === 1 ? 'día' : 'días'}`;
+  }
+
   // ---- Validación de lo que llega del script central (nunca se confía en el formato) ----
 
   const FECHA_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -112,7 +192,7 @@
     return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
   }
 
-  /** Deja solo datos con la forma esperada: lo demás se descarta en silencio. Devuelve { nombre, series, asistencia, objetivos }. */
+  /** Deja solo datos con la forma esperada: lo demás se descarta en silencio. Devuelve { nombre, series, asistencia, objetivos, actualizado }. */
   function limpiarRespuesta(r) {
     const x = r && typeof r === 'object' ? r : {};
     const lista = v => (Array.isArray(v) ? v : []);
@@ -132,9 +212,11 @@
     }
     // eslint-disable-next-line no-control-regex
     const nombre = typeof x.nombre === 'string' ? x.nombre.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().split(/\s+/)[0].slice(0, 30) : '';
-    return { nombre, series, asistencia, objetivos };
+    const t = typeof x.actualizado === 'string' ? Date.parse(x.actualizado) : NaN;
+    const actualizado = isFinite(t) && t > Date.UTC(2020, 0, 1) ? new Date(t).toISOString() : '';
+    return { nombre, series, asistencia, objetivos, actualizado };
   }
 
-  return { EJERCICIOS, limpiarRespuesta, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
+  return { EJERCICIOS, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
     mejoresPorReps, resumenEjercicio, desdeUltimasSemanas, diasEntrenados, diasPorMes, semanasCompletas };
 });

@@ -15,6 +15,7 @@ const PAGINA = 'https://juanpablogomezesc-glitch.github.io/P-gina-web-/progreso.
 const EJERCICIOS_DASHBOARD = ['Sentadilla C/B', 'Press plano C/B', 'Despegue C/B', 'Hip Trust C/B'];
 const SEMANAS_MAXIMO = 200;          // tope de pestañas "Semana N" que se leen por alumno
 const SEGUNDOS_EN_MEMORIA = 300;     // una consulta repetida en 5 minutos no vuelve a leer la planilla
+const SEGUNDOS_MINIMOS_ENTRE_LECTURAS = 30; // el botón "Actualizar" de la página no lee la planilla más de una vez cada 30 segundos
 const SEGUNDOS_LISTA_ALUMNOS = 60;   // la lista de alumnos se lee de la planilla a lo sumo una vez por minuto (también es lo que tarda en valer una clave borrada)
 // ======================
 
@@ -211,6 +212,14 @@ function buscarAlumno_(clave) {
 
 const respuesta_ = obj => ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 
+/** Cuántos segundos pasaron desde que se leyó la planilla de esa respuesta guardada (si no se puede saber, se considera vieja). */
+function edadEnSegundos_(texto) {
+  try {
+    const t = Date.parse(JSON.parse(texto).actualizado);
+    return isFinite(t) ? Math.max(0, (Date.now() - t) / 1000) : Infinity;
+  } catch (err) { return Infinity; }
+}
+
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.accion !== 'progreso') return respuesta_({ ok: false, error: 'Acción desconocida.' });
@@ -223,7 +232,9 @@ function doGet(e) {
 
   const memoria = CacheService.getScriptCache();
   const guardado = memoria.get('p_' + clave);
-  if (guardado) return ContentService.createTextOutput(guardado).setMimeType(ContentService.MimeType.JSON);
+  if (guardado && !(p.fresco === '1' && edadEnSegundos_(guardado) >= SEGUNDOS_MINIMOS_ENTRE_LECTURAS)) {
+    return ContentService.createTextOutput(guardado).setMimeType(ContentService.MimeType.JSON);
+  }
 
   let datos;
   try {
@@ -232,7 +243,7 @@ function doGet(e) {
     Logger.log(`No se pudo leer la planilla de ${alumno.nombre}: ${err}`);
     return respuesta_({ ok: false, error: 'No pude leer tu planilla. Avisale a tu entrenador.' });
   }
-  const texto = JSON.stringify({ ok: true, nombre: alumno.nombre, ...datos });
+  const texto = JSON.stringify({ ok: true, nombre: alumno.nombre, actualizado: new Date().toISOString(), ...datos });
   try { memoria.put('p_' + clave, texto, SEGUNDOS_EN_MEMORIA); } catch (err) { /* si es muy grande, simplemente no se guarda */ }
   return ContentService.createTextOutput(texto).setMimeType(ContentService.MimeType.JSON);
 }

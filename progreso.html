@@ -31,8 +31,13 @@
     <span class="etiqueta">Mi progreso</span>
     <h1 id="titulo">Tu evolución</h1>
     <p class="nota" id="estado-carga" role="status" hidden></p>
+    <div class="pr-estado" id="pr-estado" hidden>
+      <span id="actualizado" aria-live="polite"></span>
+      <button type="button" id="btn-actualizar">Actualizar</button>
+    </div>
 
     <section class="pr-resumen" id="pr-resumen" aria-label="Resumen"></section>
+    <section class="pr-mensaje" id="pr-mensaje" aria-live="polite" hidden></section>
 
     <h2>Días entrenados</h2>
     <section id="dias-entrenados" class="pr-dias"></section>

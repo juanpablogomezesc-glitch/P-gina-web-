@@ -239,3 +239,38 @@ test('doGet también encuentra al alumno cuando su planilla es una ficha de Driv
   });
   assert.equal(get({ accion: 'progreso', clave: CLAVE_A }).ok, true);
 });
+
+// ---- última actualización y "Actualizar" ----
+test('la respuesta dice cuándo se leyó la planilla', () => {
+  const { get } = entorno({ alumnos, planillas });
+  const r = get({ accion: 'progreso', clave: CLAVE_A });
+  assert.ok(Math.abs(Date.now() - Date.parse(r.actualizado)) < 5000);
+});
+
+test('"fresco" no vuelve a leer la planilla si los datos tienen menos de 30 segundos', () => {
+  const { get, lecturas } = entorno({ alumnos, planillas });
+  get({ accion: 'progreso', clave: CLAVE_A });
+  get({ accion: 'progreso', clave: CLAVE_A, fresco: '1' });
+  get({ accion: 'progreso', clave: CLAVE_A, fresco: '1' });
+  assert.equal(lecturas.n, 1);
+});
+
+test('"fresco" sí vuelve a leer la planilla cuando los datos guardados tienen más de 30 segundos', () => {
+  const { get, lecturas, cache } = entorno({ alumnos, planillas });
+  get({ accion: 'progreso', clave: CLAVE_A });
+  const vieja = JSON.parse(cache.get('p_' + CLAVE_A));
+  vieja.actualizado = new Date(Date.now() - 60000).toISOString();   // se leyó hace un minuto
+  cache.set('p_' + CLAVE_A, JSON.stringify(vieja));
+  get({ accion: 'progreso', clave: CLAVE_A });                        // sin "fresco" sigue usando lo guardado
+  assert.equal(lecturas.n, 1);
+  const r = get({ accion: 'progreso', clave: CLAVE_A, fresco: '1' });  // con "fresco" lee de nuevo
+  assert.equal(lecturas.n, 2);
+  assert.ok(Date.now() - Date.parse(r.actualizado) < 5000);
+});
+
+test('"fresco" con una clave inválida no devuelve nada ni lee planillas', () => {
+  const { get, lecturas } = entorno({ alumnos, planillas });
+  const r = get({ accion: 'progreso', clave: 'z'.repeat(24), fresco: '1' });
+  assert.equal(r.ok, false);
+  assert.equal(lecturas.n, 0);
+});

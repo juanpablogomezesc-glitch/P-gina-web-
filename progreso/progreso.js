@@ -32,6 +32,7 @@
   const clave = new URLSearchParams(location.search).get('c');
   let datos = clave ? { series: [], asistencia: [] } : demo();
   let objetivos = {};
+  let actualizadoIso = '';
   let semanasFiltro = 0;
 
   // ---- Utilidades de dibujo ----
@@ -95,14 +96,23 @@
   let peso = null;
   try { const g = parseFloat(localStorage.getItem('pr-peso')); if (g >= 30 && g <= 300) peso = g; } catch (e) {}
 
+  const dos = n => String(n).padStart(2, '0');
+  /** 'AAAA-MM-DD' de hoy. En la vista de ejemplo se usa el último día con datos, para que se vea como una persona activa. */
+  function hoyIso() {
+    if (!clave) return [...datos.asistencia].sort().pop() || '2026-01-01';
+    const d = new Date();
+    return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+  }
+
   const OBJETIVO_MENSUAL = 12; // si la planilla no trae objetivo para un mes
   const NOMBRE_MES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
   function dibujarDias() {
     const cont = document.getElementById('dias-entrenados'); cont.innerHTML = '';
-    const meses = P.diasPorMes(datos.asistencia).slice(-6);
-    if (!meses.length) { cont.innerHTML = '<p class="vacio">Todavía no hay días registrados.</p>'; return; }
-    const actual = meses[meses.length - 1];
+    const mesHoy = hoyIso().slice(0, 7);
+    const conDatos = P.diasPorMes(datos.asistencia);
+    const meses = (conDatos.some(x => x.mes === mesHoy) ? conDatos : [...conDatos.filter(x => x.mes < mesHoy), { mes: mesHoy, cantidad: 0 }]).slice(-6);
+    const actual = meses.find(x => x.mes === mesHoy);
     const objetivoDe = mes => objetivos[mes] || OBJETIVO_MENSUAL;
     const OBJ = objetivoDe(actual.mes);
     const pct = Math.min(100, Math.round(actual.cantidad / OBJ * 100));
@@ -112,6 +122,7 @@
       <div class="progreso-barra" role="progressbar" aria-valuemin="0" aria-valuemax="${OBJ}" aria-valuenow="${Math.min(actual.cantidad, OBJ)}" aria-label="Días entrenados en ${nombre(actual.mes)}"><span style="width:${pct}%"></span></div>
       <div class="delta">${actual.cantidad >= OBJ ? '¡Objetivo del mes cumplido!' : `Te faltan ${OBJ - actual.cantidad} para el objetivo`}</div>`;
     cont.appendChild(barra);
+    if (!conDatos.length) return; // sin días registrados todavía: solo la barra del mes
 
     const t = tarjeta('Por mes', `${meses.reduce((a, m) => a + m.cantidad, 0)} <small>días</small>`);
     const W = 460, H = 180, m = { t: 14, r: 10, b: 26, l: 28 }, tope = Math.max(OBJ + 2, ...meses.map(x => x.cantidad));
@@ -133,6 +144,32 @@
     t.appendChild(svg); cont.appendChild(t);
   }
 
+  /** El mensaje de arriba y, si los hay, los récords nuevos de las últimas semanas. */
+  function pintarMensaje(rachaInfo, hoy) {
+    const caja = document.getElementById('pr-mensaje');
+    const recientes = P.recordsRecientes(datos.series);
+    const mesHoy = hoy.slice(0, 7);
+    const hechosMes = (P.diasPorMes(datos.asistencia).find(x => x.mes === mesHoy) || { cantidad: 0 }).cantidad;
+    const hayDatos = datos.series.length > 0 || datos.asistencia.length > 0;
+    const texto = P.mensajeMotivacional({
+      racha: rachaInfo.racha, diasSemanaActual: rachaInfo.diasSemanaActual, faltan: rachaInfo.faltan,
+      objetivoCumplido: hechosMes > 0 && hechosMes >= (objetivos[mesHoy] || OBJETIVO_MENSUAL),
+      record: recientes[0] || null, hayDatos,
+    });
+    caja.innerHTML = '';
+    const p = document.createElement('p'); p.className = 'mensaje-texto'; p.textContent = texto; caja.appendChild(p);
+    if (recientes.length) {
+      const ul = document.createElement('ul'); ul.className = 'mensaje-records';
+      recientes.forEach(r => {
+        const li = document.createElement('li');
+        li.textContent = `★ ${r.ejercicio.replace(/ C\/B$/, '')}: ${fmtNum(r.kg)} kg × ${r.reps} (antes ${fmtNum(r.anterior)} kg)`;
+        ul.appendChild(li);
+      });
+      caja.appendChild(ul);
+    }
+    caja.hidden = false;
+  }
+
   function render() {
     dibujarDias();
     const desde = P.desdeUltimasSemanas(datos.series, semanasFiltro);
@@ -144,6 +181,10 @@
     const dato = (rot, val, delta) => { const d = document.createElement('div'); d.className = 'dato'; d.innerHTML = `<div class="rotulo">${rot}</div><div class="valor">${val}</div>${delta ? `<div class="delta">${delta}</div>` : ''}`; res.appendChild(d); };
     dato('Semanas completadas', P.semanasCompletas(asistencia), `con ${P.DIAS_PARA_SEMANA_COMPLETA} días o más${desde ? ' · período elegido' : ''}`);
     dato('Días entrenados', P.diasEntrenados(asistencia));
+    const hoy = hoyIso();
+    const rachaInfo = P.rachaSemanas(datos.asistencia, hoy);
+    dato('Racha', `${rachaInfo.racha} <small>${rachaInfo.racha === 1 ? 'semana' : 'semanas'}</small>`, 'completas seguidas');
+    pintarMensaje(rachaInfo, hoy);
 
     const sel = document.getElementById('selector-ejercicio');
     if (!sel.children.length) P.EJERCICIOS.forEach(ej => {
@@ -157,9 +198,17 @@
     const fuerza = (kg) => (kg && peso ? fmtNum(kg / peso) + ' × tu peso' : '—');
     const det = document.getElementById('detalle'); det.innerHTML = '';
     const caja = document.createElement('div'); caja.className = 'pr-resumen';
-    const mini = (rot, val, nota) => { const d = document.createElement('div'); d.className = 'dato'; d.innerHTML = `<div class="rotulo">${rot}</div><div class="valor">${val}</div>${nota ? `<div class="delta">${nota}</div>` : ''}`; caja.appendChild(d); };
-    mini('1RM estimado', r.actual === null ? '—' : `${fmtNum(r.actual)} <small>kg</small>`, r.cambio === null ? '' : `${r.cambio > 0 ? '+' : ''}${fmtNum(r.cambio)} kg en el período`);
-    mini('Récord personal', r.record ? `${fmtNum(r.record.kg)} <small>kg × ${r.record.reps}</small>` : '—', r.record ? 'Semana ' + r.record.semana : '');
+    const mini = (rot, val, nota, clase) => { const d = document.createElement('div'); d.className = 'dato'; d.innerHTML = `<div class="rotulo">${rot}</div><div class="valor">${val}</div>${nota ? `<div class="delta${clase ? ' ' + clase : ''}">${nota}</div>` : ''}`; caja.appendChild(d); };
+    const cs = P.cambioSemanal(datos.series, ejercicio);
+    const signo = n => (n > 0 ? '+' : n < 0 ? '−' : '');
+    const notaRm = [
+      cs ? `${cs.diferencia > 0 ? '▲' : cs.diferencia < 0 ? '▼' : '='} ${signo(cs.diferencia)}${fmtNum(Math.abs(cs.diferencia))} kg vs semana ${cs.anteriorSemana}` : '',
+      r.cambio === null ? '' : `${signo(r.cambio)}${fmtNum(Math.abs(r.cambio))} kg en el período`,
+    ].filter(Boolean).join('<br>');
+    mini('1RM estimado', r.actual === null ? '—' : `${fmtNum(r.actual)} <small>kg</small>`, notaRm, cs && cs.diferencia > 0 ? 'sube' : '');
+    const nr = P.recordsRecientes(datos.series).find(x => x.ejercicio === ejercicio);
+    mini('Récord personal', r.record ? `${fmtNum(r.record.kg)} <small>kg × ${r.record.reps}</small>` : '—',
+      nr ? `★ Nuevo récord · semana ${nr.semana} (antes ${fmtNum(nr.anterior)} kg)` : (r.record ? 'Semana ' + r.record.semana : ''), nr ? 'record' : '');
     mini('Fuerza relativa', r.actual && peso ? `${fmtRel(r.actual / peso)} <small>× peso</small>` : '—', peso ? '1RM estimado ÷ tu peso' : 'Cargá tu peso arriba');
     det.appendChild(caja);
 
@@ -191,24 +240,47 @@
     semanasFiltro = +b.dataset.semanas; ocultarTip(); render();
   }));
 
+  const cajaEstado = document.getElementById('pr-estado');
+  const txtActualizado = document.getElementById('actualizado');
+  const btnActualizar = document.getElementById('btn-actualizar');
+  const pintarActualizado = () => { if (actualizadoIso) txtActualizado.textContent = 'Actualizado ' + P.haceCuanto(actualizadoIso, Date.now()); };
+  let hayCargado = false;
+
+  function cargar(fresco) {
+    const estado = document.getElementById('estado-carga');
+    btnActualizar.disabled = true; btnActualizar.textContent = 'Actualizando…';
+    // referrerPolicy y credentials: la clave va en la dirección, así que no se manda a ningún otro lado
+    return fetch(`${API_URL}?accion=progreso&clave=${encodeURIComponent(clave)}${fresco ? '&fresco=1' : ''}`, { referrerPolicy: 'no-referrer', credentials: 'omit' })
+      .then(r => r.json())
+      .then(r => {
+        if (!r || r.ok !== true) {
+          const msg = (r && typeof r.error === 'string' && r.error.slice(0, 200)) || 'No se pudo cargar.';
+          if (hayCargado) txtActualizado.textContent = 'No pudimos actualizar. ' + msg; else estado.textContent = msg;
+          return;
+        }
+        const limpio = P.limpiarRespuesta(r);
+        datos = { series: limpio.series, asistencia: limpio.asistencia }; objetivos = limpio.objetivos;
+        actualizadoIso = limpio.actualizado || new Date().toISOString();
+        if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
+        hayCargado = true; estado.hidden = true; cajaEstado.hidden = false;
+        render(); pintarActualizado();
+      })
+      .catch(() => {
+        if (hayCargado) txtActualizado.textContent = 'No pudimos actualizar. Revisá tu conexión.';
+        else estado.textContent = 'No pudimos cargar tus datos. Revisá tu conexión e intentá de nuevo.';
+      })
+      .finally(() => { btnActualizar.disabled = false; btnActualizar.textContent = 'Actualizar'; });
+  }
+
   function arrancar() {
     if (!clave) { render(); return; }
     const estado = document.getElementById('estado-carga');
     document.getElementById('aviso-demo').hidden = true;
     estado.hidden = false; estado.textContent = 'Cargando tu progreso…';
     if (!API_URL) { estado.textContent = 'El dashboard todavía no está conectado.'; return; }
-    // referrerPolicy y credentials: la clave va en la dirección, así que no se manda a ningún otro lado
-    fetch(`${API_URL}?accion=progreso&clave=${encodeURIComponent(clave)}`, { referrerPolicy: 'no-referrer', credentials: 'omit' })
-      .then(r => r.json())
-      .then(r => {
-        if (!r || r.ok !== true) { estado.textContent = (r && typeof r.error === 'string' && r.error.slice(0, 200)) || 'No se pudo cargar.'; return; }
-        const limpio = P.limpiarRespuesta(r);
-        datos = { series: limpio.series, asistencia: limpio.asistencia }; objetivos = limpio.objetivos;
-        if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
-        estado.hidden = true;
-        render();
-      })
-      .catch(() => { estado.textContent = 'No pudimos cargar tus datos. Revisá tu conexión e intentá de nuevo.'; });
+    btnActualizar.addEventListener('click', () => cargar(true));
+    setInterval(pintarActualizado, 30000);
+    cargar(false);
   }
   arrancar();
 })();
