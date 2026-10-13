@@ -104,7 +104,7 @@ function objetivosMensuales_(valores) {
 // ---------- Lectura de la planilla de un alumno ----------
 
 /** Las pestañas con el calendario de tildes: "Control Mensual" (la que usan los alumnos) o "Asistencia AAAA". No cuenta "Control Mensual (anterior)". */
-const esHojaAsistencia_ = nombre => /^(Control Mensual|Asistencia\s+\d{4})\s*$/i.test(String(nombre));
+const esHojaAsistencia_ = nombre => /^\s*(Control Mensual|Asistencia\s+\d{4})\s*$/i.test(String(nombre));
 
 /** Devuelve { series, asistencia, objetivos } de una planilla abierta. Solo los ejercicios del dashboard. */
 function leerPlanilla_(ss) {
