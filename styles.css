@@ -385,3 +385,4 @@ main.inicio { max-width: none; padding: 0; overflow-x: clip; }
 /* Menú de arriba: solo Artículos y Contacto, los dos en naranja */
 .nav nav a.nav-cta { font-family: var(--fuente-titulos); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; font-size: 0.95rem; }
 @media (max-width: 480px) { .nav nav { gap: 0.4rem; } .nav nav a.nav-cta { margin-left: 0; padding: 0.55rem 0.7rem; font-size: 0.85rem; } }
+#contacto p + p { margin-top: 0.75rem; }
