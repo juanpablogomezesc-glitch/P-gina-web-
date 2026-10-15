@@ -150,7 +150,6 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
 @media (max-width: 480px) {
   .nav nav { gap: 0.25rem; }
   .nav nav a { font-size: 0.85rem; padding: 0.7rem 0.4rem; }
-  .nav nav a[href="#sobre-mi"] { display: none; }
   .logo { font-size: 1rem; }
 }
 
@@ -217,7 +216,6 @@ figure img { display: block; width: 100%; height: auto; object-fit: cover; borde
 [hidden] { display: none !important; }
 @media (max-width: 480px) {
   .nav { gap: 0.75rem; }
-  .nav nav a[href$="#contacto"] { display: none; }
 }
 
 /* ───────── Pulido: interacción, celular y accesibilidad ───────── */
@@ -289,7 +287,7 @@ main.inicio { max-width: none; padding: 0; overflow-x: clip; }
 .nav nav a.nav-cta[aria-current="page"] { color: #0d0d0d; }
 .nav nav a.nav-cta:active { transform: scale(0.96); }
 @media (hover: hover) and (pointer: fine) { .nav nav a.nav-cta:hover { background: #ff8540; color: #0d0d0d; } }
-@media (max-width: 380px) { .logo-largo, .logo span:nth-of-type(1) { display: none; } }
+@media (max-width: 480px) { .logo-largo, .logo span:nth-of-type(1) { display: none; } }
 
 /* Portada */
 .hero { padding: clamp(1.75rem, 4vw, 3rem) 0 clamp(3rem, 7vw, 5rem); overflow-x: clip; }
@@ -383,3 +381,7 @@ main.inicio { max-width: none; padding: 0; overflow-x: clip; }
   .trabajo li::before { transition: none; }
   .carrusel img, .portada img { transition: none; }
 }
+
+/* Menú de arriba: solo Artículos y Contacto, los dos en naranja */
+.nav nav a.nav-cta { font-family: var(--fuente-titulos); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; font-size: 0.95rem; }
+@media (max-width: 480px) { .nav nav { gap: 0.4rem; } .nav nav a.nav-cta { margin-left: 0; padding: 0.55rem 0.7rem; font-size: 0.85rem; } }

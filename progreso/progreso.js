@@ -266,12 +266,15 @@
     datos = { series: limpio.series, asistencia: limpio.asistencia }; objetivos = limpio.objetivos;
     actualizadoIso = limpio.actualizado || new Date().toISOString();
     if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
-    const btn = document.getElementById('btn-rutina');
-    if (limpio.rutina) {
-      btn.href = limpio.rutina;
-      btn.textContent = limpio.rutinaSemana ? `Ver mi rutina · Semana ${limpio.rutinaSemana}` : 'Ver mi rutina';
-      btn.hidden = false;
-    } else btn.hidden = true;
+    // El mismo botón "Mi rutina" abajo del título (celular) y en el menú de arriba (pantallas anchas)
+    ['btn-rutina', 'nav-rutina'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (limpio.rutina) {
+        btn.href = limpio.rutina;
+        btn.title = limpio.rutinaSemana ? `Abre tu planilla en la semana ${limpio.rutinaSemana}` : 'Abre tu planilla';
+        btn.hidden = false;
+      } else btn.hidden = true;
+    });
     hayCargado = true; document.getElementById('estado-carga').hidden = true; cajaEstado.hidden = false;
     render(); pintarActualizado();
   }

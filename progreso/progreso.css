@@ -74,6 +74,13 @@
 
 /* Acciones: la rutina del alumno y sacar turno */
 .pr-acciones { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 20px; }
-.progreso .pr-acciones .boton, .progreso .pr-acciones .boton-secundario { display: inline-flex; align-items: center; min-height: 44px; margin: 0; }
+.progreso .pr-acciones .boton { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 150px; margin: 0; }
 .pr-acciones .boton { font-size: 1rem; }
-@media (max-width: 480px) { .pr-acciones { display: grid; grid-template-columns: 1fr; } .pr-acciones .boton, .pr-acciones .boton-secundario { justify-content: center; text-align: center; } }
+@media (max-width: 480px) { .pr-acciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .pr-acciones .boton { min-width: 0; padding-left: 0.5rem; padding-right: 0.5rem; } .pr-acciones .boton[hidden] + .boton { grid-column: 1 / -1; } }
+
+/* Mi rutina y Turnos: arriba a la derecha en pantallas anchas; debajo del título en el celular */
+.nav-extra { display: none; }
+@media (min-width: 761px) {
+  .nav-extra:not([hidden]) { display: inline-block; }
+  .pr-acciones { display: none; }
+}

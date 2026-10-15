@@ -24,9 +24,11 @@
   <header class="nav">
     <a href="index.html" class="logo">JP<span>·</span><span class="logo-largo">Entrenamiento</span></a>
     <nav>
-      <a href="index.html#articulos">Artículos</a>
-      <a href="turnos.html" class="nav-cta">Turnos</a>
-      <a href="index.html#contacto">Contacto</a>
+      <a href="index.html#articulos" class="nav-cta">Artículos</a>
+      <a href="index.html#contacto" class="nav-cta">Contacto</a>
+      <!-- Solo en pantallas anchas: en el celular estos dos botones van grandes debajo del título -->
+      <a href="#" id="nav-rutina" class="nav-cta nav-extra" target="_blank" rel="noopener noreferrer" hidden>Mi rutina</a>
+      <a href="turnos.html" class="nav-cta nav-extra">Turnos</a>
     </nav>
   </header>
 
@@ -41,8 +43,8 @@
     </div>
 
     <div class="pr-acciones" id="pr-acciones">
-      <a class="boton" id="btn-rutina" href="#" target="_blank" rel="noopener noreferrer" hidden>Ver mi rutina</a>
-      <a class="boton-secundario" href="turnos.html">Sacar turno</a>
+      <a class="boton" id="btn-rutina" href="#" target="_blank" rel="noopener noreferrer" hidden>Mi rutina</a>
+      <a class="boton" href="turnos.html">Turnos</a>
     </div>
 
     <section class="pr-resumen" id="pr-resumen" aria-label="Resumen"></section>
