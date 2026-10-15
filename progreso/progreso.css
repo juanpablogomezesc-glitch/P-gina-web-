@@ -72,9 +72,6 @@
 @media (hover: hover) { .pr-estado button:not(:disabled):hover { border-color: var(--acento); } }
 .progreso .mensaje-texto { color: var(--texto); }
 
-/* Acciones: la rutina del alumno y sacar turno */
+/* Acciones: la rutina del alumno y sacar turno (botones con el diseño de la etiqueta, ver .pastilla en styles.css) */
 .pr-acciones { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 20px; }
-.progreso .pr-acciones .boton { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 150px; margin: 0; }
-.pr-acciones .boton { font-size: 1rem; }
-@media (max-width: 480px) { .pr-acciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .pr-acciones .boton { min-width: 0; padding-left: 0.5rem; padding-right: 0.5rem; } .pr-acciones .boton[hidden] + .boton { grid-column: 1 / -1; } }
-
+@media (max-width: 480px) { .pr-acciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .pr-acciones .pastilla { padding-left: 0.5rem; padding-right: 0.5rem; } .pr-acciones .pastilla[hidden] + .pastilla { grid-column: 1 / -1; } }

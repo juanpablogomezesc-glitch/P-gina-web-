@@ -389,3 +389,21 @@ main.inicio { max-width: none; padding: 0; overflow-x: clip; }
 
 /* Encabezado de sección igual al del dashboard: etiqueta naranja arriba y título grande */
 h2.titulo-grande { font-size: clamp(2.2rem, 7vw, 4rem); line-height: 1.1; margin: 0.5rem 0 1.5rem; }
+
+/* Menú de arriba y botones del dashboard con el diseño de la etiqueta "MI PROGRESO":
+   letras naranjas sobre fondo naranja suave, en forma de píldora. */
+.nav nav a.nav-cta, .pastilla {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 40px; padding: 0.4rem 1.05rem; margin-left: 0;
+  font-family: var(--fuente-titulos); font-weight: 700; font-size: 0.85rem;
+  text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none; white-space: nowrap;
+  color: var(--acento); background: var(--acento-suave); border: 0; border-radius: 999px;
+  cursor: pointer; transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+.nav nav a.nav-cta[aria-current="page"] { color: var(--acento); }
+.nav nav a.nav-cta:active, .pastilla:active { transform: scale(0.96); }
+.nav nav a.nav-cta:focus-visible, .pastilla:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .nav nav a.nav-cta:hover, .pastilla:hover { background: rgba(255, 107, 26, 0.24); color: #ff8540; } }
+@media (prefers-reduced-motion: reduce) { .nav nav a.nav-cta:active, .pastilla:active { transform: none; } }
+.pastilla { font-size: 0.95rem; padding: 0.5rem 1.4rem; min-height: 44px; }
+@media (max-width: 480px) { .nav nav { gap: 0.4rem; } .nav nav a.nav-cta { padding: 0.4rem 0.8rem; font-size: 0.8rem; } }
