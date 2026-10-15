@@ -407,3 +407,15 @@ h2.titulo-grande { font-size: clamp(2.2rem, 7vw, 4rem); line-height: 1.1; margin
 @media (prefers-reduced-motion: reduce) { .nav nav a.nav-cta:active, .pastilla:active { transform: none; } }
 .pastilla { font-size: 0.95rem; padding: 0.5rem 1.4rem; min-height: 44px; }
 @media (max-width: 480px) { .nav nav { gap: 0.4rem; } .nav nav a.nav-cta { padding: 0.4rem 0.8rem; font-size: 0.8rem; } }
+
+/* Logo JP con el mismo diseño de la etiqueta Mi progreso (píldora naranja suave) */
+.nav .logo {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 0.4rem 1.05rem;
+  font-family: var(--fuente-titulos); font-weight: 700; font-size: 0.95rem;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--acento); background: var(--acento-suave); border-radius: 999px;
+  transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+.nav .logo:active { transform: scale(0.96); }
+@media (hover: hover) and (pointer: fine) { .nav .logo:hover { background: rgba(255, 107, 26, 0.24); } }
+@media (prefers-reduced-motion: reduce) { .nav .logo:active { transform: none; } }
