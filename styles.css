@@ -386,3 +386,6 @@ main.inicio { max-width: none; padding: 0; overflow-x: clip; }
 .nav nav a.nav-cta { font-family: var(--fuente-titulos); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; font-size: 0.95rem; }
 @media (max-width: 480px) { .nav nav { gap: 0.4rem; } .nav nav a.nav-cta { margin-left: 0; padding: 0.55rem 0.7rem; font-size: 0.85rem; } }
 #contacto p + p { margin-top: 0.75rem; }
+
+/* Encabezado de sección igual al del dashboard: etiqueta naranja arriba y título grande */
+h2.titulo-grande { font-size: clamp(2.2rem, 7vw, 4rem); line-height: 1.1; margin: 0.5rem 0 1.5rem; }
