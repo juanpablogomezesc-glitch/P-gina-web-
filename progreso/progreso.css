@@ -78,9 +78,3 @@
 .pr-acciones .boton { font-size: 1rem; }
 @media (max-width: 480px) { .pr-acciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .pr-acciones .boton { min-width: 0; padding-left: 0.5rem; padding-right: 0.5rem; } .pr-acciones .boton[hidden] + .boton { grid-column: 1 / -1; } }
 
-/* Mi rutina y Turnos: arriba a la derecha en pantallas anchas; debajo del título en el celular */
-.nav-extra { display: none; }
-@media (min-width: 761px) {
-  .nav-extra:not([hidden]) { display: inline-block; }
-  .pr-acciones { display: none; }
-}
