@@ -257,7 +257,7 @@
     try {
       const g = JSON.parse(localStorage.getItem(llaveGuardado));
       const limpio = g && typeof g === 'object' ? P.limpiarRespuesta(g) : null;
-      return limpio && (limpio.series.length || limpio.asistencia.length) ? limpio : null;
+      return limpio && (limpio.series.length || limpio.asistencia.length || limpio.rutina) ? limpio : null;
     } catch (e) { return null; }
   }
   function guardar(limpio) { try { localStorage.setItem(llaveGuardado, JSON.stringify(limpio)); } catch (e) {} }
@@ -266,6 +266,12 @@
     datos = { series: limpio.series, asistencia: limpio.asistencia }; objetivos = limpio.objetivos;
     actualizadoIso = limpio.actualizado || new Date().toISOString();
     if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
+    const btn = document.getElementById('btn-rutina');
+    if (limpio.rutina) {
+      btn.href = limpio.rutina;
+      btn.textContent = limpio.rutinaSemana ? `Ver mi rutina · Semana ${limpio.rutinaSemana}` : 'Ver mi rutina';
+      btn.hidden = false;
+    } else btn.hidden = true;
     hayCargado = true; document.getElementById('estado-carga').hidden = true; cajaEstado.hidden = false;
     render(); pintarActualizado();
   }

@@ -192,7 +192,7 @@
     return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
   }
 
-  /** Deja solo datos con la forma esperada: lo demás se descarta en silencio. Devuelve { nombre, series, asistencia, objetivos, actualizado }. */
+  /** Deja solo datos con la forma esperada: lo demás se descarta en silencio. Devuelve { nombre, series, asistencia, objetivos, actualizado, rutina, rutinaSemana }. */
   function limpiarRespuesta(r) {
     const x = r && typeof r === 'object' ? r : {};
     const lista = v => (Array.isArray(v) ? v : []);
@@ -214,7 +214,11 @@
     const nombre = typeof x.nombre === 'string' ? x.nombre.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().split(/\s+/)[0].slice(0, 30) : '';
     const t = typeof x.actualizado === 'string' ? Date.parse(x.actualizado) : NaN;
     const actualizado = isFinite(t) && t > Date.UTC(2020, 0, 1) ? new Date(t).toISOString() : '';
-    return { nombre, series, asistencia, objetivos, actualizado };
+    // Solo se acepta una dirección de planilla de Google Docs: nunca otro sitio ni "javascript:".
+    const RUTINA = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,}\/edit(#gid=\d{1,12})?$/;
+    const rutina = typeof x.rutina === 'string' && RUTINA.test(x.rutina) ? x.rutina : '';
+    const rutinaSemana = rutina && Number.isInteger(x.rutinaSemana) && x.rutinaSemana > 0 && x.rutinaSemana < 10000 ? x.rutinaSemana : null;
+    return { nombre, series, asistencia, objetivos, actualizado, rutina, rutinaSemana };
   }
 
   return { EJERCICIOS, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,

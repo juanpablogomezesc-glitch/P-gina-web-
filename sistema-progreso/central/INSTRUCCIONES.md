@@ -5,7 +5,8 @@ Se instala **una sola vez**. Las planillas de los alumnos no llevan ningún cód
 ## Cómo funciona
 - Cada alumno tiene un **link personal** (por ejemplo `.../progreso.html?c=AbCd...`). La parte `c=` es una clave secreta de 24 caracteres: funciona como una contraseña. Quien no tenga el link no ve nada.
 - El script lee las pestañas "Semana N" (desde la más nueva hacia atrás, hasta que aparece una con el formato viejo) y el calendario de asistencia (la pestaña "Control Mensual", o "Asistencia AAAA").
-- Solo devuelve los 4 ejercicios del dashboard, las fechas de asistencia y los objetivos. No devuelve emails, ni el ID de la planilla, ni nada de otros alumnos.
+- Solo devuelve los 4 ejercicios del dashboard, las fechas de asistencia, los objetivos y el link a la planilla **del propio alumno** (el botón "Ver mi rutina", que abre la pestaña de la semana más nueva). No devuelve emails ni nada de otros alumnos.
+- Para que el botón "Ver mi rutina" abra la planilla, esa planilla tiene que estar **compartida con el Gmail del alumno** en Drive. Si no lo está, Google le pide acceso.
 
 ## Qué permisos pide, y por qué
 El script necesita abrir las planillas de tus alumnos, así que Google te va a pedir permiso para **ver y editar tus hojas de cálculo**. El código solo las **lee** (no escribe en ninguna planilla de alumno). Aparece "Google no verificó esta aplicación": es normal, el código es tuyo.

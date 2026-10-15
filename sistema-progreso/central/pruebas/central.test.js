@@ -12,8 +12,11 @@ const CLAVE_A = 'AbCdEfGhJkLmNpQrStUvWxYz';   // 24 caracteres
 const CLAVE_B = 'zYxWvUtSrQpNmLkJhGfEdCbA';
 
 // ---- planillas falsas ----
-const hoja = (nombre, filas, { maxFilas } = {}) => ({
+let proximoGid = 100;
+const hoja = (nombre, filas, { maxFilas, oculta = false } = {}) => ({
   getName: () => nombre,
+  getSheetId: (() => { const g = proximoGid++; return () => g; })(),
+  isSheetHidden: () => oculta,
   getMaxRows: () => maxFilas || filas.length,
   getLastRow: () => filas.length,
   getRange: (f, c, nf, nc) => ({
@@ -27,7 +30,7 @@ const planilla = hojas => ({ getSheets: () => hojas });
 const fila = (nombre, ser, rep, ...kg) => ['', '', '', nombre, '', '', ser, rep, ...kg];
 const ENCABEZADO_NUEVO = ['', '', '', 'Ejercicios ', 'Obs', '', 'SER', 'REP', 'KG', '', '', 'RIR'];
 const ENCABEZADO_VIEJO = ['', '', '', 'Ejercicios ', 'Obs', '', 'Ser', 'Repeticiones ', '', '', '', '', '', 'Kilogramos'];
-const semana = (n, filas, encabezado = ENCABEZADO_NUEVO) => hoja(`Semana ${n}`, [encabezado, ['', '', '', 'DÍA 1 '], ...filas]);
+const semana = (n, filas, encabezado = ENCABEZADO_NUEVO, opciones) => hoja(`Semana ${n}`, [encabezado, ['', '', '', 'DÍA 1 '], ...filas], opciones);
 
 function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
   const celdasCache = new Map();
@@ -149,7 +152,7 @@ test('con la clave correcta devuelve solo los datos de ese alumno', () => {
   const b = get({ accion: 'progreso', clave: CLAVE_B });
   assert.deepEqual(b.series.map(s => s.kg), [200]);
   assert.ok(!JSON.stringify(a).includes('ana@ejemplo.com'), 'no devuelve el email');
-  assert.ok(!JSON.stringify(a).includes(ID_A), 'no devuelve el ID de la planilla');
+  assert.ok(!JSON.stringify(a).includes(ID_B), 'no devuelve datos ni links de otro alumno');
 });
 
 test('claves mal formadas, inventadas o vacías no devuelven nada', () => {
@@ -313,4 +316,36 @@ test('medirTiempos informa cada paso y el total, y pide una planilla si falta', 
   const texto = Array.from(lineas).join('\n');
   for (const paso of ['Abrir la planilla', 'Listar las pestañas', 'Leer el nombre de 2 pestañas', 'Lectura completa', 'Series leídas: 1 · días tildados: 4', 'TOTAL']) assert.ok(texto.includes(paso), paso);
   assert.throws(() => api.medirTiempos(''), /Pegá el link/);
+});
+
+// ---- botón "Mi rutina" ----
+test('la respuesta trae el link de la planilla del alumno, abierto en la pestaña de la semana más nueva', () => {
+  const nueva = semana(103, [fila('Sentadilla C/B', 1, 5, 60)]);
+  const { get } = entorno({ alumnos, planillas: { [ID_A]: planilla([semana(102, []), nueva, semana(101, [])]), [ID_B]: planillas[ID_B] } });
+  const r = get({ accion: 'progreso', clave: CLAVE_A });
+  assert.equal(r.rutina, `https://docs.google.com/spreadsheets/d/${ID_A}/edit#gid=${nueva.getSheetId()}`);
+  assert.equal(r.rutinaSemana, 103);
+  assert.ok(!JSON.stringify(r).includes(ID_B), 'nada de otro alumno');
+  assert.ok(!('semanaActual' in r), 'el dato interno no sale');
+});
+
+test('si la pestaña más nueva está oculta, el link abre la planilla sin apuntar a esa pestaña', () => {
+  const { get } = entorno({ alumnos, planillas: { [ID_A]: planilla([semana(5, [], ENCABEZADO_NUEVO, { oculta: true })]) } });
+  const r = get({ accion: 'progreso', clave: CLAVE_A });
+  assert.equal(r.rutina, `https://docs.google.com/spreadsheets/d/${ID_A}/edit`);
+  assert.equal(r.rutinaSemana, 5);
+});
+
+test('un alumno sin pestañas de semana recibe el link a la planilla y ninguna semana', () => {
+  const { get } = entorno({ alumnos, planillas: { [ID_A]: planilla([]) } });
+  const r = get({ accion: 'progreso', clave: CLAVE_A });
+  assert.equal(r.rutina, `https://docs.google.com/spreadsheets/d/${ID_A}/edit`);
+  assert.equal(r.rutinaSemana, null);
+});
+
+test('cada alumno recibe el link de su propia planilla y nunca el del otro', () => {
+  const { get } = entorno({ alumnos, planillas });
+  assert.ok(get({ accion: 'progreso', clave: CLAVE_A }).rutina.includes(ID_A));
+  assert.ok(get({ accion: 'progreso', clave: CLAVE_B }).rutina.includes(ID_B));
+  assert.ok(!get({ accion: 'progreso', clave: CLAVE_B }).rutina.includes(ID_A));
 });

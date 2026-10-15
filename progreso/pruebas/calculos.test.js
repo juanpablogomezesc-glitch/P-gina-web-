@@ -120,7 +120,7 @@ test('limpiarRespuesta descarta lo que no tiene la forma esperada y no deja pasa
 
 test('limpiarRespuesta aguanta respuestas vacías o de otro tipo', () => {
   for (const x of [null, undefined, 5, 'hola', [], {}, { series: 'x', asistencia: {}, objetivos: [] }]) {
-    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], asistencia: [], objetivos: {}, actualizado: '' });
+    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], asistencia: [], objetivos: {}, actualizado: '', rutina: '', rutinaSemana: null });
   }
 });
 
@@ -199,4 +199,18 @@ test('limpiarRespuesta conserva una fecha de actualización válida y descarta u
   assert.equal(P.limpiarRespuesta({ actualizado: 'ayer' }).actualizado, '');
   assert.equal(P.limpiarRespuesta({ actualizado: '1999-01-01' }).actualizado, '');
   assert.equal(P.limpiarRespuesta({ actualizado: 5 }).actualizado, '');
+});
+
+test('limpiarRespuesta solo acepta como rutina una planilla de Google, y descarta cualquier otra dirección', () => {
+  const ID = '1u6rp_PwKUNYy-yCtVPYxuPjYEC6gEmhYucfauLoBwAE';
+  const ok = `https://docs.google.com/spreadsheets/d/${ID}/edit#gid=123456`;
+  assert.deepEqual([P.limpiarRespuesta({ rutina: ok, rutinaSemana: 103 }).rutina, P.limpiarRespuesta({ rutina: ok, rutinaSemana: 103 }).rutinaSemana], [ok, 103]);
+  assert.equal(P.limpiarRespuesta({ rutina: `https://docs.google.com/spreadsheets/d/${ID}/edit` }).rutina, `https://docs.google.com/spreadsheets/d/${ID}/edit`); // sin pestaña
+  for (const mala of [
+    'javascript:alert(1)', `http://docs.google.com/spreadsheets/d/${ID}/edit`, `https://evil.com/spreadsheets/d/${ID}/edit`,
+    `https://docs.google.com.evil.com/spreadsheets/d/${ID}/edit`, `https://docs.google.com/spreadsheets/d/${ID}/edit#gid=abc`,
+    `https://docs.google.com/spreadsheets/d/${ID}/edit?x=1`, `https://docs.google.com/spreadsheets/d/corto/edit`, '', 5, null,
+  ]) assert.equal(P.limpiarRespuesta({ rutina: mala, rutinaSemana: 5 }).rutina, '', String(mala));
+  assert.equal(P.limpiarRespuesta({ rutina: ok, rutinaSemana: '103' }).rutinaSemana, null); // la semana tiene que ser un número
+  assert.equal(P.limpiarRespuesta({ rutinaSemana: 103 }).rutinaSemana, null);               // sin link no hay semana
 });

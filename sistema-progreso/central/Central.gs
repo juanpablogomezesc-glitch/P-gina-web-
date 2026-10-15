@@ -106,7 +106,7 @@ function objetivosMensuales_(valores) {
 /** Las pestañas con el calendario de tildes: "Control Mensual" (la que usan los alumnos) o "Asistencia AAAA". No cuenta "Control Mensual (anterior)". */
 const esHojaAsistencia_ = nombre => /^\s*(Control Mensual|Asistencia\s+\d{4})\s*$/i.test(String(nombre));
 
-/** Devuelve { series, asistencia, objetivos } de una planilla abierta. Solo los ejercicios del dashboard. */
+/** Devuelve { series, asistencia, objetivos, semanaActual } de una planilla abierta. Solo los ejercicios del dashboard. */
 function leerPlanilla_(ss) {
   const hojas = ss.getSheets();
   const semanas = [], asistencias = [];
@@ -117,6 +117,7 @@ function leerPlanilla_(ss) {
     else if (esHojaAsistencia_(nombre)) asistencias.push(h);
   });
   semanas.sort((a, b) => b.n - a.n); // de la más nueva a la más vieja
+  const semanaActual = semanas.length ? { n: semanas[0].n, gid: gidVisible_(semanas[0].hoja) } : null;
 
   const quiero = new Map(EJERCICIOS_DASHBOARD.map(e => [claveNombre_(e), e]));
   const series = [];
@@ -136,7 +137,17 @@ function leerPlanilla_(ss) {
     asistencia = asistencia.concat(fechasMarcadas_(valores));
     Object.assign(objetivos, objetivosMensuales_(valores));
   });
-  return { series, asistencia: asistencia.sort(), objetivos };
+  return { series, asistencia: asistencia.sort(), objetivos, semanaActual };
+}
+
+/** Número de pestaña (gid) para abrir directo en ella; si la pestaña está oculta, Google no la muestra, así que no se usa. */
+function gidVisible_(hoja) {
+  try { return hoja.isSheetHidden() ? null : hoja.getSheetId(); } catch (err) { return null; }
+}
+
+/** Dirección de la planilla del alumno, directo en la pestaña de la semana actual. Solo se arma con IDs que pasaron idDePlanilla_. */
+function urlRutina_(idPlanilla, gid) {
+  return `https://docs.google.com/spreadsheets/d/${idPlanilla}/edit` + (Number.isInteger(gid) && gid >= 0 ? `#gid=${gid}` : '');
 }
 
 // ---------- Alumnos, claves y seguridad ----------
@@ -255,7 +266,12 @@ function doGet(e) {
     Logger.log(`No se pudo leer la planilla de ${alumno.nombre}: ${err}`);
     return respuesta_({ ok: false, error: 'No pude leer tu planilla. Avisale a tu entrenador.' });
   }
-  const texto = JSON.stringify({ ok: true, nombre: alumno.nombre, actualizado: new Date().toISOString(), ...datos });
+  const { semanaActual, ...resto } = datos;
+  const texto = JSON.stringify({
+    ok: true, nombre: alumno.nombre, actualizado: new Date().toISOString(), ...resto,
+    rutina: urlRutina_(alumno.planilla, semanaActual && semanaActual.gid), // el botón "Mi rutina": la planilla de ESTE alumno, nada más
+    rutinaSemana: semanaActual ? semanaActual.n : null,
+  });
   try { memoria.put('p_' + clave, texto, SEGUNDOS_EN_MEMORIA); } catch (err) { /* si es muy grande, simplemente no se guarda */ }
   return ContentService.createTextOutput(texto).setMimeType(ContentService.MimeType.JSON);
 }
