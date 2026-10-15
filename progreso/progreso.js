@@ -29,7 +29,15 @@
   }
   // Dirección del script central (se completa al publicarlo). Con ?c=CLAVE se muestran los datos reales de esa persona.
   const API_URL = 'https://script.google.com/macros/s/AKfycbxJOD38AnzlNTIYBdZjqZF20HhrCT2H53XL_7IuNtCS2oyCZfjfr1VK7PQX-1YgsEyfDQ/exec';
-  const clave = new URLSearchParams(location.search).get('c');
+  // La clave viene en el link; se recuerda en este navegador por si el acceso directo la pierde
+  const clave = (() => {
+    let c = new URLSearchParams(location.search).get('c');
+    try {
+      if (c && /^[A-Za-z0-9]{24}$/.test(c)) localStorage.setItem('pr-clave', c);
+      else if (!c) c = localStorage.getItem('pr-clave');
+    } catch (e) {}
+    return c || null;
+  })();
   let datos = clave ? { series: [], asistencia: [] } : demo();
   let objetivos = {};
   let actualizadoIso = '';
