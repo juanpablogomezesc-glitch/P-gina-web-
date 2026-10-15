@@ -30,3 +30,9 @@ en Instagram y en el grupo de WhatsApp. HTML y CSS, sin dependencias.
 3. En unos minutos el sitio queda en
    `https://juanpablogomezesc-glitch.github.io/P-gina-web-/` y cada artículo en
    `.../articulos/nombre.html`, listo para compartir por WhatsApp o Instagram.
+
+## Antes de subir cambios
+
+Si se modificó algún archivo `.css` o `.js` de las páginas, correr `node herramientas/versionar.js`.
+Le pone a cada página un número de versión (`?v=…`) para que los navegadores bajen los archivos nuevos en vez de usar copias viejas
+(si se olvida, `node --test herramientas/versionar.test.js` avisa).
