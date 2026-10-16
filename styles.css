@@ -436,3 +436,11 @@ h2.titulo-grande { font-size: clamp(2.2rem, 7vw, 4rem); line-height: 1.1; margin
 }
 .credenciales li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--acento); flex: none; }
 @media (max-width: 640px) { .sobre-mi .retrato { justify-self: center; } }
+
+/* Artículos que vienen: una sola franja compacta en vez de una tarjeta vacía por tema */
+.proximamente-franja {
+  grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem;
+  padding: 1rem 1.25rem; border: 1px dashed var(--borde); border-radius: 12px;
+}
+.proximamente-temas { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.proximamente-franja p { margin: 0; font-family: var(--fuente-titulos); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--suave); }
