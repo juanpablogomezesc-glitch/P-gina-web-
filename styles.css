@@ -419,3 +419,10 @@ h2.titulo-grande { font-size: clamp(2.2rem, 7vw, 4rem); line-height: 1.1; margin
 .nav .logo:active { transform: scale(0.96); }
 @media (hover: hover) and (pointer: fine) { .nav .logo:hover { background: rgba(255, 107, 26, 0.24); } }
 @media (prefers-reduced-motion: reduce) { .nav .logo:active { transform: none; } }
+
+/* Contacto: botones con el diseño de la etiqueta Mi progreso, con ícono */
+.contacto-botones { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-top: 1.5rem; max-width: 34rem; }
+.contacto-botones .pastilla { gap: 0.6rem; }
+.contacto-botones svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.contacto-botones svg .relleno { fill: currentColor; stroke: none; }
+.contacto-botones svg.solido { fill: currentColor; stroke: none; }
