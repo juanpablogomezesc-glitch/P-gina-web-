@@ -426,3 +426,13 @@ h2.titulo-grande { font-size: clamp(2.2rem, 7vw, 4rem); line-height: 1.1; margin
 .contacto-botones svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .contacto-botones svg .relleno { fill: currentColor; stroke: none; }
 .contacto-botones svg.solido { fill: currentColor; stroke: none; }
+
+/* Sobre mí: tres títulos en fila de etiquetas (no son botones: borde fino, sin naranja de fondo) */
+.credenciales { list-style: none; margin: 1.25rem 0 1.5rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.credenciales li {
+  display: inline-flex; align-items: center; gap: 0.55rem; min-height: 40px; padding: 0.4rem 1rem;
+  font-family: var(--fuente-titulos); font-weight: 600; font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--texto); border: 1px solid var(--borde); border-radius: 999px;
+}
+.credenciales li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--acento); flex: none; }
+@media (max-width: 640px) { .sobre-mi .retrato { justify-self: center; } }
