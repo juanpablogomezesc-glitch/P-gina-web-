@@ -76,13 +76,20 @@
 .pr-acciones { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 20px; }
 @media (max-width: 480px) { .pr-acciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .pr-acciones .pastilla { padding-left: 0.5rem; padding-right: 0.5rem; } .pr-acciones .pastilla[hidden] + .pastilla { grid-column: 1 / -1; } }
 
-/* Selector de ejercicio: los principales como botones y debajo todos los demás, por grupo */
+/* Selector de ejercicio: dos listas con el diseño de la etiqueta Mi progreso / Mi rutina (píldora naranja suave) */
 .selector-ejercicio { display: grid; gap: 12px; }
-.selector-ejercicio .filtros { margin-bottom: 0; }
-.selectores { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+.selectores { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
 .selectores label { display: grid; gap: 6px; font: 600 .75rem var(--fuente-texto); letter-spacing: .06em; text-transform: uppercase; color: var(--suave); min-width: 0; }
 .selectores select {
-  font: 500 1rem var(--fuente-texto); color: var(--texto); background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px;
-  padding: 10px 14px; min-height: 48px; width: 100%; text-overflow: ellipsis; text-transform: none; letter-spacing: 0; cursor: pointer;
+  -webkit-appearance: none; appearance: none; width: 100%; min-height: 48px; padding: 0.5rem 2.6rem 0.5rem 1.2rem; border: 0; border-radius: 999px;
+  font-family: var(--fuente-titulos); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.05em; text-transform: uppercase; text-overflow: ellipsis;
+  color: var(--acento); background-color: var(--acento-suave); cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff6b1a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 1rem center; background-size: 18px;
+  transition: background-color 160ms var(--ease-out), transform 160ms var(--ease-out);
 }
+.selectores select option { background: var(--tarjeta); color: var(--texto); font-family: var(--fuente-texto); text-transform: none; letter-spacing: 0; font-weight: 500; }
+.selectores select:active { transform: scale(0.98); }
 .selectores select:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .selectores select:hover { background-color: rgba(255, 107, 26, 0.24); } }
+@media (prefers-reduced-motion: reduce) { .selectores select:active { transform: none; } }

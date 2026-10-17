@@ -101,11 +101,10 @@
     return a;
   }
 
-  // ---- Selección de ejercicio: los 4 principales como botones y todos los demás por grupo ----
+  // ---- Selección de ejercicio: por grupo y por ejercicio ----
   let gruposActuales = [];
   const selGrupo = document.getElementById('sel-grupo');
   const selEjercicio = document.getElementById('sel-ejercicio');
-  const botonesPrincipales = document.getElementById('principales');
   function elegir(nombre) {
     ejercicio = nombre;
     try { localStorage.setItem('pr-ejercicio', nombre); } catch (e) {}
@@ -118,14 +117,6 @@
     const grupoActual = grupos.find(g => g.ejercicios.includes(ejercicio)) || grupos[0];
     selGrupo.replaceChildren(...grupos.map(g => opcion(`${g.grupo} (${g.ejercicios.length})`, g.grupo, g === grupoActual)));
     selEjercicio.replaceChildren(...(grupoActual ? grupoActual.ejercicios : []).map(n => opcion(n, n, n === ejercicio)));
-    const todos = grupos.flatMap(g => g.ejercicios);
-    botonesPrincipales.replaceChildren(...P.EJERCICIOS.map(e => todos.find(n => n.toLowerCase() === e.toLowerCase())).filter(Boolean).map(n => {
-      const b = document.createElement('button'); b.type = 'button'; b.textContent = n.replace(/ C\/B$/, ''); b.dataset.ej = n;
-      b.setAttribute('aria-pressed', n === ejercicio ? 'true' : 'false');
-      b.addEventListener('click', () => elegir(n));
-      return b;
-    }));
-    botonesPrincipales.hidden = !botonesPrincipales.children.length;
   }
   selGrupo.addEventListener('change', () => { const g = gruposActuales.find(x => x.grupo === selGrupo.value); if (g) elegir(g.ejercicios[0]); });
   selEjercicio.addEventListener('change', () => elegir(selEjercicio.value));
