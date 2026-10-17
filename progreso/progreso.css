@@ -75,3 +75,14 @@
 /* Acciones: la rutina del alumno y sacar turno (botones con el diseño de la etiqueta, ver .pastilla en styles.css) */
 .pr-acciones { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 20px; }
 @media (max-width: 480px) { .pr-acciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .pr-acciones .pastilla { padding-left: 0.5rem; padding-right: 0.5rem; } .pr-acciones .pastilla[hidden] + .pastilla { grid-column: 1 / -1; } }
+
+/* Selector de ejercicio: los principales como botones y debajo todos los demás, por grupo */
+.selector-ejercicio { display: grid; gap: 12px; }
+.selector-ejercicio .filtros { margin-bottom: 0; }
+.selectores { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+.selectores label { display: grid; gap: 6px; font: 600 .75rem var(--fuente-texto); letter-spacing: .06em; text-transform: uppercase; color: var(--suave); min-width: 0; }
+.selectores select {
+  font: 500 1rem var(--fuente-texto); color: var(--texto); background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px;
+  padding: 10px 14px; min-height: 48px; width: 100%; text-overflow: ellipsis; text-transform: none; letter-spacing: 0; cursor: pointer;
+}
+.selectores select:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }

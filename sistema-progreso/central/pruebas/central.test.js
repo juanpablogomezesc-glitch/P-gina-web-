@@ -26,6 +26,7 @@ const hoja = (nombre, filas, { maxFilas, oculta = false } = {}) => ({
     }),
   }),
 });
+const ID_CATALOGO = /CATALOGO_ID = '([^']+)'/.exec(CODIGO)[1];
 const planilla = hojas => ({ getSheets: () => hojas });
 const fila = (nombre, ser, rep, ...kg) => ['', '', '', nombre, '', '', ser, rep, ...kg];
 const ENCABEZADO_NUEVO = ['', '', '', 'Ejercicios ', 'Obs', '', 'SER', 'REP', 'KG', '', '', 'RIR'];
@@ -53,12 +54,12 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
     Date, Math, Error, JSON, Map, Set, Logger: { log() {} },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ss,
-      openById: id => { lecturas.n++; if (!planillas[id]) throw new Error('sin acceso'); return planillas[id]; },
+      openById: id => { if (id !== ID_CATALOGO) lecturas.n++; if (!planillas[id]) throw new Error('sin acceso'); return planillas[id]; },
     },
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) ? celdasCache.get(k) : null), put: (k, v) => celdasCache.set(k, v) }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, etiquetaCategoria_, armarCatalogo_, leerCatalogo_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -116,10 +117,34 @@ test('lee de la semana más nueva hacia atrás y se detiene en la primera pesta�
     semana(93, [fila('Sentadilla C/B', 3, 5, 80)]),                       // detrás del viejo: tampoco
   ]);
   const r = api.leerPlanilla_(ss);
+  // ahora entran todos los ejercicios con peso; las 3 series iguales del Remo valen una sola vez
   assert.deepEqual(Array.from(r.series, s => [s.semana, s.ejercicio, s.kg, s.reps]), [
     [95, 'Sentadilla C/B', 100, 5], [96, 'Hip Trust C/B', 150, 6],
-    [97, 'Press plano C/B', 80, 5], [97, 'Despegue C/B', 140, 3], [97, 'Despegue C/B', 150, 3]]);
-  // el Remo en TRX no es de los 4 ejercicios del dashboard
+    [97, 'Press Plano C/B', 80, 5], [97, 'Remo en TRX', 40, 12], [97, 'despegue c/b', 140, 3], [97, 'despegue c/b', 150, 3]]);
+  assert.deepEqual(JSON.parse(JSON.stringify(r.categorias)), {}, 'sin catálogo no hay categorías');
+});
+
+test('con catálogo usa el nombre del catálogo y agrega la categoría; lo que no está queda sin categoría', () => {
+  const { api } = entorno();
+  const catalogo = api.armarCatalogo_([
+    ['Piernas_Rodilla_Dominante', 'Empuje_Tren_Superior', 'Core_Abdominales_Crunch'],
+    ['Sentadilla C/B ', 'Press Plano C/B', 'Abdominales Sit Ups'],
+    ['Prensa 45º', 'Press Plano C/M ', ''],
+  ]);
+  const ss = planilla([semana(1, [fila('sentadilla  c/b', 3, 5, 100), fila('Remo en TRX', 1, 12, 40), fila('press plano c/b', 1, 5, 80)]), semana(2, [fila('Sentadilla C/B', 1, 5, 100)])]);
+  const r = api.leerPlanilla_(ss, catalogo);
+  assert.deepEqual(Array.from(r.series, s => [s.semana, s.ejercicio, s.kg, s.reps]), [
+    [1, 'Sentadilla C/B', 100, 5], [1, 'Remo en TRX', 40, 12], [1, 'Press Plano C/B', 80, 5], [2, 'Sentadilla C/B', 100, 5]]);
+  assert.deepEqual(JSON.parse(JSON.stringify(r.categorias)), { 'Sentadilla C/B': 'Piernas · rodilla dominante', 'Press Plano C/B': 'Empuje · tren superior' });
+});
+
+test('los nombres de categoría quedan legibles', () => {
+  const { api } = entorno();
+  assert.equal(api.etiquetaCategoria_('Piernas_Rodilla_Dominante'), 'Piernas · rodilla dominante');
+  assert.equal(api.etiquetaCategoria_('PLYO_BOX'), 'Plyo · box');
+  assert.equal(api.etiquetaCategoria_('Med Ball '), 'Med ball');
+  assert.equal(api.etiquetaCategoria_(''), '');
+  assert.deepEqual(JSON.parse(JSON.stringify(api.armarCatalogo_([['', 'X_Y'], ['sin título', 'a'], ['', ' b  c ']]))), [{ nombre: 'a', categoria: 'X · y' }, { nombre: 'b c', categoria: 'X · y' }]);
 });
 
 test('también lee la asistencia y los objetivos', () => {
@@ -348,4 +373,19 @@ test('cada alumno recibe el link de su propia planilla y nunca el del otro', () 
   assert.ok(get({ accion: 'progreso', clave: CLAVE_A }).rutina.includes(ID_A));
   assert.ok(get({ accion: 'progreso', clave: CLAVE_B }).rutina.includes(ID_B));
   assert.ok(!get({ accion: 'progreso', clave: CLAVE_B }).rutina.includes(ID_A));
+});
+
+test('la respuesta del dashboard trae las categorías de los ejercicios del catálogo', () => {
+  const catalogo = { getSheets: () => [{ getDataRange: () => ({ getValues: () => [['Piernas_Rodilla_Dominante', 'Empuje_Tren_Superior'], ['Sentadilla C/B', 'Press Plano C/B']] }) }] };
+  const { get } = entorno({ alumnos, planillas: { ...planillas, [ID_CATALOGO]: catalogo } });
+  const a = get({ accion: 'progreso', clave: CLAVE_A });
+  assert.deepEqual(a.series.map(s => s.ejercicio), ['Sentadilla C/B']);
+  assert.deepEqual(a.categorias, { 'Sentadilla C/B': 'Piernas · rodilla dominante' });
+});
+
+test('si el catálogo no se puede leer, el dashboard sigue funcionando sin categorías', () => {
+  const { get } = entorno({ alumnos, planillas });
+  const a = get({ accion: 'progreso', clave: CLAVE_A });
+  assert.equal(a.ok, true);
+  assert.deepEqual(a.categorias, {});
 });

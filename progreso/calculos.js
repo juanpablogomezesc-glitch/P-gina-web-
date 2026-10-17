@@ -9,6 +9,8 @@
   const EJERCICIOS = ['Sentadilla C/B', 'Press plano C/B', 'Despegue C/B', 'Hip Trust C/B'];
   const MAX_REPS_ESTIMABLES = 10; // más de 10 repeticiones: la fórmula pierde precisión, no se usa
   const DIAS_PARA_SEMANA_COMPLETA = 3;
+  const MAX_SERIES = 20000;  // tope de filas aceptadas del script central
+  const MAX_NOMBRE = 60;     // largo máximo del nombre de un ejercicio
   const DIA_MS = 24 * 60 * 60 * 1000;
 
   /** Para comparar nombres sin importar mayúsculas, tildes ni espacios de más. */
@@ -121,12 +123,51 @@
     return { kg: mejor.kg, reps: mejor.reps, semana: ultima, anterior: previo };
   }
 
-  /** Récords de los 4 ejercicios que ocurrieron en la última semana con datos (o la anterior): [{ ejercicio, kg, reps, semana, anterior }]. */
+  /** Nombres de los ejercicios de las series (sin repetir aunque estén escritos distinto), con el primero que aparece como nombre. */
+  function nombresDeEjercicios(series) {
+    const nombres = new Map();
+    series.forEach(s => { if (!nombres.has(clave(s.ejercicio))) nombres.set(clave(s.ejercicio), s.ejercicio); });
+    return [...nombres.values()];
+  }
+
+  /** Récords de todos los ejercicios que ocurrieron en la última semana con datos (o la anterior): [{ ejercicio, kg, reps, semana, anterior }]. */
   function recordsRecientes(series) {
     if (!series.length) return [];
     const ultima = Math.max(...series.map(s => s.semana));
-    return EJERCICIOS.map(ejercicio => ({ ejercicio, ...nuevoRecord(series, ejercicio) }))
+    return nombresDeEjercicios(series).map(ejercicio => ({ ejercicio, ...nuevoRecord(series, ejercicio) }))
       .filter(r => r.kg && r.semana >= ultima - 1);
+  }
+
+  const SIN_GRUPO = 'Otros';
+
+  /**
+   * Ordena los ejercicios del alumno por grupo para los selectores: [{ grupo, ejercicios: [nombre] }].
+   * Los grupos y los ejercicios con más semanas de datos van primero; lo que no tiene categoría va a "Otros", al final.
+   */
+  function agruparEjercicios(series, categorias) {
+    const cat = new Map(Object.keys(categorias || {}).map(k => [clave(k), categorias[k]]));
+    const semanas = new Map(); // ejercicio (clave) → semanas con datos
+    series.forEach(s => { const k = clave(s.ejercicio); if (!semanas.has(k)) semanas.set(k, new Set()); semanas.get(k).add(s.semana); });
+    const grupos = new Map();
+    nombresDeEjercicios(series).forEach(nombre => {
+      const g = cat.get(clave(nombre)) || SIN_GRUPO;
+      if (!grupos.has(g)) grupos.set(g, []);
+      grupos.get(g).push(nombre);
+    });
+    const peso = g => g.ejercicios.reduce((a, n) => a + semanas.get(clave(n)).size, 0);
+    const lista = [...grupos.entries()].map(([grupo, ejercicios]) => ({
+      grupo,
+      ejercicios: ejercicios.sort((a, b) => semanas.get(clave(b)).size - semanas.get(clave(a)).size || a.localeCompare(b, 'es')),
+    }));
+    return lista.sort((a, b) => (a.grupo === SIN_GRUPO) - (b.grupo === SIN_GRUPO) || peso(b) - peso(a) || a.grupo.localeCompare(b.grupo, 'es'));
+  }
+
+  /** Con qué ejercicio abrir: el primero de los 4 principales que tenga datos; si no, el que más semanas tenga. */
+  function ejercicioInicial(series, categorias) {
+    const grupos = agruparEjercicios(series, categorias);
+    const todos = grupos.flatMap(g => g.ejercicios);
+    const principal = EJERCICIOS.find(e => todos.some(n => clave(n) === clave(e)));
+    return principal ? todos.find(n => clave(n) === clave(principal)) : (todos[0] || EJERCICIOS[0]);
   }
 
   /** Cambio del 1RM estimado entre las dos últimas semanas con datos del ejercicio, o null si hay menos de dos. */
@@ -192,16 +233,28 @@
     return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
   }
 
-  /** Deja solo datos con la forma esperada: lo demás se descarta en silencio. Devuelve { nombre, series, asistencia, objetivos, actualizado, rutina, rutinaSemana }. */
+  /** Deja solo datos con la forma esperada: lo demás se descarta en silencio. Devuelve { nombre, series, categorias, asistencia, objetivos, actualizado, rutina, rutinaSemana }. */
   function limpiarRespuesta(r) {
     const x = r && typeof r === 'object' ? r : {};
     const lista = v => (Array.isArray(v) ? v : []);
-    const nombres = new Map(EJERCICIOS.map(e => [clave(e), e]));
-    const series = lista(x.series).map(s => {
-      const ej = s && typeof s.ejercicio === 'string' ? nombres.get(clave(s.ejercicio)) : null;
-      return ej && Number.isInteger(s.semana) && s.semana > 0 && s.semana < 10000 && typeof s.kg === 'number' && s.kg > 0 && s.kg <= 1000 &&
-        Number.isInteger(s.reps) && s.reps >= 1 && s.reps <= 100 ? { semana: s.semana, ejercicio: ej, kg: s.kg, reps: s.reps } : null;
+    // Cualquier ejercicio: lo único que se exige es que sea un texto corto y razonable (se muestra como texto, nunca como HTML).
+    const limpiarTexto = (t, largo) => (typeof t === 'string' ? t.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, largo) : ''); // eslint-disable-line no-control-regex
+    const nombres = new Map(); // nombre comparable → primer nombre válido (así "despegue c/b" y "Despegue C/B" son el mismo)
+    const series = lista(x.series).slice(0, MAX_SERIES).map(s => {
+      const ej = s && limpiarTexto(s.ejercicio, MAX_NOMBRE);
+      if (!ej) return null;
+      if (!nombres.has(clave(ej))) nombres.set(clave(ej), ej);
+      return Number.isInteger(s.semana) && s.semana > 0 && s.semana < 10000 && typeof s.kg === 'number' && s.kg > 0 && s.kg <= 1000 &&
+        Number.isInteger(s.reps) && s.reps >= 1 && s.reps <= 100 ? { semana: s.semana, ejercicio: nombres.get(clave(ej)), kg: s.kg, reps: s.reps } : null;
     }).filter(Boolean);
+    const categorias = {};
+    if (x.categorias && typeof x.categorias === 'object' && !Array.isArray(x.categorias)) {
+      Object.keys(x.categorias).slice(0, 1000).forEach(k => {
+        const nombre = nombres.get(clave(limpiarTexto(k, MAX_NOMBRE)));
+        const g = limpiarTexto(x.categorias[k], 60);
+        if (nombre && g) categorias[nombre] = g;
+      });
+    }
     const asistencia = [...new Set(lista(x.asistencia).filter(fechaValida))].sort();
     const objetivos = {};
     if (x.objetivos && typeof x.objetivos === 'object') {
@@ -218,9 +271,9 @@
     const RUTINA = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,}\/edit(#gid=\d{1,12})?$/;
     const rutina = typeof x.rutina === 'string' && RUTINA.test(x.rutina) ? x.rutina : '';
     const rutinaSemana = rutina && Number.isInteger(x.rutinaSemana) && x.rutinaSemana > 0 && x.rutinaSemana < 10000 ? x.rutinaSemana : null;
-    return { nombre, series, asistencia, objetivos, actualizado, rutina, rutinaSemana };
+    return { nombre, series, categorias, asistencia, objetivos, actualizado, rutina, rutinaSemana };
   }
 
-  return { EJERCICIOS, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
+  return { EJERCICIOS, agruparEjercicios, ejercicioInicial, nombresDeEjercicios, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
     mejoresPorReps, resumenEjercicio, desdeUltimasSemanas, diasEntrenados, diasPorMes, semanasCompletas };
 });

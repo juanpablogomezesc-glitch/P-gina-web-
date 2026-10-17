@@ -104,15 +104,16 @@ test('limpiarRespuesta descarta lo que no tiene la forma esperada y no deja pasa
       { semana: 99, ejercicio: 'Sentadilla C/B', kg: -5, reps: 5 },        // kg negativo
       { semana: 99, ejercicio: 'Sentadilla C/B', kg: 100, reps: 0 },       // reps 0
       { semana: '99', ejercicio: 'Sentadilla C/B', kg: 100, reps: 5 },     // semana como texto
-      { semana: 99, ejercicio: '<b>Hack</b>', kg: 100, reps: 5 },          // ejercicio que no es de los 4
+      { semana: 99, ejercicio: '<b>Hack</b>', kg: 100, reps: 5 },          // vale: cualquier ejercicio es válido, se muestra siempre como texto
+      { semana: 99, ejercicio: '', kg: 100, reps: 5 },                     // sin nombre
+      { semana: 99, ejercicio: 7, kg: 100, reps: 5 },                      // nombre que no es texto
       { semana: 99, ejercicio: 'Sentadilla C/B', kg: 1e9, reps: 5 },       // peso imposible
       null, 'x', { kg: 1 },
     ],
     asistencia: ['2026-10-05', '2026-10-05', '2026-02-30', 'hoy', 5, '2026-1-5', '<script>'],
     objetivos: { '2026-10': 15, '2026-13': 10, '2026-09': 0, '2026-08': '12', 'x': 3 },
   });
-  assert.equal(r.series.length, 1);
-  assert.equal(r.series[0].ejercicio, 'Sentadilla C/B');
+  assert.deepEqual(r.series.map(x => x.ejercicio), ['sentadilla c/b', '<b>Hack</b>']);
   assert.deepEqual(r.asistencia, ['2026-10-05']);
   assert.deepEqual(r.objetivos, { '2026-10': 15 });
   assert.equal(r.nombre, '<img'); // solo la primera palabra; igual se muestra como texto, nunca como HTML
@@ -120,7 +121,7 @@ test('limpiarRespuesta descarta lo que no tiene la forma esperada y no deja pasa
 
 test('limpiarRespuesta aguanta respuestas vacías o de otro tipo', () => {
   for (const x of [null, undefined, 5, 'hola', [], {}, { series: 'x', asistencia: {}, objetivos: [] }]) {
-    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], asistencia: [], objetivos: {}, actualizado: '', rutina: '', rutinaSemana: null });
+    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], categorias: {}, asistencia: [], objetivos: {}, actualizado: '', rutina: '', rutinaSemana: null });
   }
 });
 
@@ -213,4 +214,42 @@ test('limpiarRespuesta solo acepta como rutina una planilla de Google, y descart
   ]) assert.equal(P.limpiarRespuesta({ rutina: mala, rutinaSemana: 5 }).rutina, '', String(mala));
   assert.equal(P.limpiarRespuesta({ rutina: ok, rutinaSemana: '103' }).rutinaSemana, null); // la semana tiene que ser un número
   assert.equal(P.limpiarRespuesta({ rutinaSemana: 103 }).rutinaSemana, null);               // sin link no hay semana
+});
+
+test('limpiarRespuesta junta nombres escritos distinto, recorta nombres largos y limpia las categorías', () => {
+  const r = P.limpiarRespuesta({
+    series: [
+      { semana: 1, ejercicio: 'Despegue C/B', kg: 100, reps: 5 },
+      { semana: 2, ejercicio: ' despegue  c/b ', kg: 110, reps: 5 },
+      { semana: 2, ejercicio: 'x'.repeat(500), kg: 10, reps: 5 },
+    ],
+    categorias: { 'Despegue C/B': 'Piernas · cadera dominante', 'No está': 'Grupo', ['x'.repeat(500)]: 5, Remo: { a: 1 } },
+  });
+  assert.deepEqual(r.series.slice(0, 2).map(x => x.ejercicio), ['Despegue C/B', 'Despegue C/B']);
+  assert.equal(r.series[2].ejercicio.length, 60);
+  assert.deepEqual(r.categorias, { 'Despegue C/B': 'Piernas · cadera dominante' }); // solo de ejercicios que existen, con texto
+  assert.deepEqual(P.limpiarRespuesta({ categorias: [1, 2] }).categorias, {});
+});
+
+test('agruparEjercicios ordena por grupo y deja "Otros" al final', () => {
+  const sr = (semana, ejercicio) => ({ semana, ejercicio, kg: 50, reps: 5 });
+  const series = [sr(1, 'Remo en TRX'), sr(1, 'Press Plano C/B'), sr(2, 'Press Plano C/B'), sr(3, 'Press Plano C/B'), sr(1, 'Press Plano C/M'), sr(1, 'Sentadilla C/B'), sr(2, 'Sentadilla C/B')];
+  const g = P.agruparEjercicios(series, { 'Press Plano C/B': 'Empuje', 'Press Plano C/M': 'Empuje', 'Sentadilla C/B': 'Piernas' });
+  assert.deepEqual(g.map(x => x.grupo), ['Empuje', 'Piernas', 'Otros']);
+  assert.deepEqual(g[0].ejercicios, ['Press Plano C/B', 'Press Plano C/M']);
+  assert.deepEqual(g[2].ejercicios, ['Remo en TRX']);
+  assert.deepEqual(P.agruparEjercicios([], {}), []);
+});
+
+test('ejercicioInicial abre con uno de los 4 principales si hay datos, y si no con el más entrenado', () => {
+  const sr = (semana, ejercicio) => ({ semana, ejercicio, kg: 50, reps: 5 });
+  assert.equal(P.ejercicioInicial([sr(1, 'Remo'), sr(1, 'despegue c/b')], {}), 'despegue c/b');
+  assert.equal(P.ejercicioInicial([sr(1, 'Remo'), sr(1, 'Prensa'), sr(2, 'Prensa')], {}), 'Prensa');
+  assert.equal(P.ejercicioInicial([], {}), P.EJERCICIOS[0]);
+});
+
+test('recordsRecientes mira todos los ejercicios, no solo los 4 principales', () => {
+  const sr = (semana, ejercicio, kg) => ({ semana, ejercicio, kg, reps: 5 });
+  const r = P.recordsRecientes([sr(1, 'Prensa 45º', 100), sr(2, 'Prensa 45º', 120), sr(2, 'Sentadilla C/B', 90)]);
+  assert.deepEqual(r.map(x => [x.ejercicio, x.kg]), [['Prensa 45º', 120]]); // la sentadilla no tiene una marca anterior para superar
 });

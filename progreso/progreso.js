@@ -9,7 +9,9 @@
   // series: una por serie realizada, con el número de semana de la pestaña. asistencia: fechas tildadas en el calendario.
   function demo() {
     let sem = 7; const azar = () => (sem = (sem * 9301 + 49297) % 233280) / 233280;
-    const base = { 'Sentadilla C/B': 70, 'Press plano C/B': 50, 'Despegue C/B': 90, 'Hip Trust C/B': 80 };
+    const base = { 'Sentadilla C/B': 70, 'Press plano C/B': 50, 'Despegue C/B': 90, 'Hip Trust C/B': 80, 'Prensa 45º': 120, 'Press Inclinado C/M': 24, 'Remo Polea Baja Neutra': 45 };
+    const categorias = { 'Sentadilla C/B': 'Piernas · rodilla dominante', 'Prensa 45º': 'Piernas · rodilla dominante', 'Press plano C/B': 'Empuje · tren superior', 'Press Inclinado C/M': 'Empuje · tren superior',
+      'Despegue C/B': 'Piernas · cadera dominante', 'Hip Trust C/B': 'Piernas · glúteos', 'Remo Polea Baja Neutra': 'Tracción · tren superior horizontal' };
     const series = [], asistencia = [];
     for (let w = 0; w < 36; w++) {
       const lunes = new Date(Date.UTC(2025, 9, 6) + w * 7 * 864e5);
@@ -18,14 +20,14 @@
         if (azar() < 0.15) return;
         asistencia.push(new Date(lunes.getTime() + d * 864e5).toISOString().slice(0, 10));
         const ej = Object.keys(base);
-        [ej[i % 4], ej[(i + 1) % 4]].forEach(nombre => {
+        [ej[(i * 2) % ej.length], ej[(i * 2 + 1) % ej.length], ej[(i * 2 + 2) % ej.length]].forEach(nombre => {
           const reps = [5, 6, 8, 3, 10][Math.floor(azar() * 5)];
           const kg = Math.round((base[nombre] + w * 0.9 + azar() * 4) / 2.5) * 2.5;
           series.push({ semana: 67 + w, ejercicio: nombre, kg, reps });
         });
       });
     }
-    return { series, asistencia };
+    return { series, asistencia, categorias };
   }
   // Dirección del script central (se completa al publicarlo). Con ?c=CLAVE se muestran los datos reales de esa persona.
   const API_URL = 'https://script.google.com/macros/s/AKfycbxJOD38AnzlNTIYBdZjqZF20HhrCT2H53XL_7IuNtCS2oyCZfjfr1VK7PQX-1YgsEyfDQ/exec';
@@ -95,12 +97,43 @@
 
   function tarjeta(titulo, actual) {
     const a = document.createElement('article'); a.className = 'grafico';
-    a.innerHTML = `<header><h3>${titulo}</h3><span class="actual">${actual}</span></header>`;
+    a.innerHTML = `<header><h3>${esc(titulo)}</h3><span class="actual">${actual}</span></header>`;
     return a;
   }
 
+  // ---- Selección de ejercicio: los 4 principales como botones y todos los demás por grupo ----
+  let gruposActuales = [];
+  const selGrupo = document.getElementById('sel-grupo');
+  const selEjercicio = document.getElementById('sel-ejercicio');
+  const botonesPrincipales = document.getElementById('principales');
+  function elegir(nombre) {
+    ejercicio = nombre;
+    try { localStorage.setItem('pr-ejercicio', nombre); } catch (e) {}
+    ocultarTip(); render();
+  }
+  function opcion(texto, valor, elegida) { const o = document.createElement('option'); o.textContent = texto; o.value = valor; o.selected = elegida; return o; }
+  function pintarSelectores(grupos) {
+    gruposActuales = grupos;
+    document.getElementById('selector-ejercicio').hidden = !grupos.length;
+    const grupoActual = grupos.find(g => g.ejercicios.includes(ejercicio)) || grupos[0];
+    selGrupo.replaceChildren(...grupos.map(g => opcion(`${g.grupo} (${g.ejercicios.length})`, g.grupo, g === grupoActual)));
+    selEjercicio.replaceChildren(...(grupoActual ? grupoActual.ejercicios : []).map(n => opcion(n, n, n === ejercicio)));
+    const todos = grupos.flatMap(g => g.ejercicios);
+    botonesPrincipales.replaceChildren(...P.EJERCICIOS.map(e => todos.find(n => n.toLowerCase() === e.toLowerCase())).filter(Boolean).map(n => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = n.replace(/ C\/B$/, ''); b.dataset.ej = n;
+      b.setAttribute('aria-pressed', n === ejercicio ? 'true' : 'false');
+      b.addEventListener('click', () => elegir(n));
+      return b;
+    }));
+    botonesPrincipales.hidden = !botonesPrincipales.children.length;
+  }
+  selGrupo.addEventListener('change', () => { const g = gruposActuales.find(x => x.grupo === selGrupo.value); if (g) elegir(g.ejercicios[0]); });
+  selEjercicio.addEventListener('change', () => elegir(selEjercicio.value));
+
   // ---- Render ----
-  let ejercicio = P.EJERCICIOS[0];
+  let ejercicio = null; // el ejercicio elegido; si todavía no eligió, se abre con el principal que tenga datos
+  try { ejercicio = localStorage.getItem('pr-ejercicio') || null; } catch (e) {}
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let peso = null;
   try { const g = parseFloat(localStorage.getItem('pr-peso')); if (g >= 30 && g <= 300) peso = g; } catch (e) {}
 
@@ -194,13 +227,9 @@
     dato('Racha', `${rachaInfo.racha} <small>${rachaInfo.racha === 1 ? 'semana' : 'semanas'}</small>`, 'completas seguidas');
     pintarMensaje(rachaInfo, hoy);
 
-    const sel = document.getElementById('selector-ejercicio');
-    if (!sel.children.length) P.EJERCICIOS.forEach(ej => {
-      const b = document.createElement('button'); b.type = 'button'; b.textContent = ej.replace(/ C\/B$/, '');
-      b.dataset.ej = ej; b.addEventListener('click', () => { ejercicio = ej; ocultarTip(); render(); });
-      sel.appendChild(b);
-    });
-    [...sel.children].forEach(b => b.setAttribute('aria-pressed', b.dataset.ej === ejercicio ? 'true' : 'false'));
+    const grupos = P.agruparEjercicios(datos.series, datos.categorias);
+    if (!grupos.some(g => g.ejercicios.includes(ejercicio))) ejercicio = P.ejercicioInicial(datos.series, datos.categorias);
+    pintarSelectores(grupos);
 
     const r = P.resumenEjercicio(series, ejercicio);
     const fuerza = (kg) => (kg && peso ? fmtNum(kg / peso) + ' × tu peso' : '—');
@@ -231,7 +260,7 @@
     const c = x => x ? `${fmtNum(x.kg)}<small>${peso ? fmtRel(x.kg / peso) + ' × peso' : 'Semana ' + x.semana}</small>` : '—';
     const h = document.createElement('h2'); h.textContent = 'Mejores marcas'; det.appendChild(h);
     const caja2 = document.createElement('div'); caja2.className = 'tabla-caja';
-    caja2.innerHTML = `<table><caption style="position:absolute;left:-9999px">Mejor peso de ${ejercicio} con al menos 1, 3, 5 y 8 repeticiones</caption><thead><tr><th>Reps</th><th>Mejor peso</th><th>Semana</th></tr></thead><tbody>${[1, 3, 5, 8].map(n => `<tr><td>${n}+</td><td>${m[n] ? fmtNum(m[n].kg) + (peso ? `<small>${fmtRel(m[n].kg / peso)} × tu peso</small>` : '') : '—'}</td><td>${m[n] ? m[n].semana : '—'}</td></tr>`).join('')}</tbody></table>`;
+    caja2.innerHTML = `<table><caption style="position:absolute;left:-9999px">Mejor peso de ${esc(ejercicio)} con al menos 1, 3, 5 y 8 repeticiones</caption><thead><tr><th>Reps</th><th>Mejor peso</th><th>Semana</th></tr></thead><tbody>${[1, 3, 5, 8].map(n => `<tr><td>${n}+</td><td>${m[n] ? fmtNum(m[n].kg) + (peso ? `<small>${fmtRel(m[n].kg / peso)} × tu peso</small>` : '') : '—'}</td><td>${m[n] ? m[n].semana : '—'}</td></tr>`).join('')}</tbody></table>`;
     det.appendChild(caja2);
   }
 
@@ -271,7 +300,7 @@
   function guardar(limpio) { try { localStorage.setItem(llaveGuardado, JSON.stringify(limpio)); } catch (e) {} }
 
   function aplicar(limpio) {
-    datos = { series: limpio.series, asistencia: limpio.asistencia }; objetivos = limpio.objetivos;
+    datos = { series: limpio.series, asistencia: limpio.asistencia, categorias: limpio.categorias }; objetivos = limpio.objetivos;
     actualizadoIso = limpio.actualizado || new Date().toISOString();
     if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
     const btn = document.getElementById('btn-rutina');

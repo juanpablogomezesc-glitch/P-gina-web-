@@ -12,7 +12,10 @@
 
 // ====== OPCIONES ======
 const PAGINA = 'https://juanpablogomezesc-glitch.github.io/P-gina-web-/progreso.html'; // dónde está el dashboard
-const EJERCICIOS_DASHBOARD = ['Sentadilla C/B', 'Press plano C/B', 'Despegue C/B', 'Hip Trust C/B'];
+// Planilla con todos los ejercicios agrupados por categoría ("A Dashboard Excercise", en Online > Planillas). Solo se lee, nunca se modifica.
+// Si queda vacío o no se puede abrir, el dashboard igual funciona: los ejercicios aparecen sin grupo ("Otros").
+const CATALOGO_ID = '1s3DHYKr7bAW3KNeRgbyS14mpGr83Hf3ynBZL7cTuszg';
+const SEGUNDOS_CATALOGO = 21600;     // el catálogo se vuelve a leer cada 6 horas
 const SEMANAS_MAXIMO = 200;          // tope de pestañas "Semana N" que se leen por alumno
 const SEGUNDOS_EN_MEMORIA = 300;     // una consulta repetida en 5 minutos no vuelve a leer la planilla
 const SEGUNDOS_MINIMOS_ENTRE_LECTURAS = 30; // el botón "Actualizar" de la página no lee la planilla más de una vez cada 30 segundos
@@ -31,6 +34,29 @@ const COL_ = { ejercicio: 3, series: 6, reps: 7, kg0: 8, kgN: 10 };
 const limpiarNombre_ = t => String(t).replace(/\s+/g, ' ').trim();
 const numero_ = v => (typeof v === 'number' && isFinite(v) ? v : null);
 const claveNombre_ = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** "Piernas_Rodilla_Dominante" → "Piernas · rodilla dominante"; "PLYO_BOX" → "Plyo · box"; "Med Ball " → "Med ball". */
+function etiquetaCategoria_(titulo) {
+  const partes = String(titulo).split('_').map(t => limpiarNombre_(t).toLowerCase()).filter(Boolean);
+  if (!partes.length) return '';
+  const cabeza = partes[0].charAt(0).toUpperCase() + partes[0].slice(1);
+  return partes.length > 1 ? `${cabeza} · ${partes.slice(1).join(' ')}` : cabeza;
+}
+
+/** La hoja del catálogo (una categoría por columna, sus ejercicios hacia abajo) → [{ nombre, categoria }] en el orden de la hoja. */
+function armarCatalogo_(valores) {
+  const lista = [];
+  const titulos = valores[0] || [];
+  titulos.forEach((titulo, c) => {
+    const categoria = etiquetaCategoria_(titulo);
+    if (!categoria) return;
+    for (let f = 1; f < valores.length; f++) {
+      const nombre = limpiarNombre_(valores[f][c] == null ? '' : valores[f][c]);
+      if (nombre) lista.push({ nombre, categoria });
+    }
+  });
+  return lista;
+}
 
 /** Las pestañas viejas tienen otro orden de columnas: solo se leen las del formato actual. */
 function esFormatoNuevo_(filas) {
@@ -106,8 +132,8 @@ function objetivosMensuales_(valores) {
 /** Las pestañas con el calendario de tildes: "Control Mensual" (la que usan los alumnos) o "Asistencia AAAA". No cuenta "Control Mensual (anterior)". */
 const esHojaAsistencia_ = nombre => /^\s*(Control Mensual|Asistencia\s+\d{4})\s*$/i.test(String(nombre));
 
-/** Devuelve { series, asistencia, objetivos, semanaActual } de una planilla abierta. Solo los ejercicios del dashboard. */
-function leerPlanilla_(ss) {
+/** Devuelve { series, categorias, asistencia, objetivos, semanaActual } de una planilla abierta. `catalogo` es la lista de armarCatalogo_. */
+function leerPlanilla_(ss, catalogo) {
   const hojas = ss.getSheets();
   const semanas = [], asistencias = [];
   hojas.forEach(h => {
@@ -119,14 +145,22 @@ function leerPlanilla_(ss) {
   semanas.sort((a, b) => b.n - a.n); // de la más nueva a la más vieja
   const semanaActual = semanas.length ? { n: semanas[0].n, gid: gidVisible_(semanas[0].hoja) } : null;
 
-  const quiero = new Map(EJERCICIOS_DASHBOARD.map(e => [claveNombre_(e), e]));
-  const series = [];
+  // Todos los ejercicios con peso. Si está en el catálogo se usa su nombre y su categoría; si no, queda tal cual lo escribiste en la planilla.
+  const porClave = new Map();
+  (catalogo || []).forEach(x => { if (!porClave.has(claveNombre_(x.nombre))) porClave.set(claveNombre_(x.nombre), x); });
+  const series = [], vistas = new Set(), categorias = {};
   for (const s of semanas.slice(0, SEMANAS_MAXIMO)) {
     const filas = s.hoja.getRange(1, 1, Math.min(s.hoja.getMaxRows(), 80), 12).getValues();
     if (!esFormatoNuevo_(filas)) break; // desde acá para atrás son pestañas con el formato viejo
     leerSemana_(filas).forEach(x => {
-      const canonico = quiero.get(claveNombre_(x.ejercicio));
-      if (canonico) series.push({ semana: s.n, ejercicio: canonico, kg: x.kg, reps: x.reps });
+      const k = claveNombre_(x.ejercicio);
+      const enCatalogo = porClave.get(k);
+      const nombre = enCatalogo ? enCatalogo.nombre : x.ejercicio;
+      const marca = `${s.n}|${k}|${x.kg}|${x.reps}`;
+      if (vistas.has(marca)) return; // series repetidas (3 × 5 con 80 kg) valen una sola vez: para los gráficos da igual y pesa menos
+      vistas.add(marca);
+      series.push({ semana: s.n, ejercicio: nombre, kg: x.kg, reps: x.reps });
+      if (enCatalogo) categorias[nombre] = enCatalogo.categoria;
     });
   }
   series.sort((a, b) => a.semana - b.semana);
@@ -137,7 +171,7 @@ function leerPlanilla_(ss) {
     asistencia = asistencia.concat(fechasMarcadas_(valores));
     Object.assign(objetivos, objetivosMensuales_(valores));
   });
-  return { series, asistencia: asistencia.sort(), objetivos, semanaActual };
+  return { series, categorias, asistencia: asistencia.sort(), objetivos, semanaActual };
 }
 
 /** Número de pestaña (gid) para abrir directo en ella; si la pestaña está oculta, Google no la muestra, así que no se usa. */
@@ -148,6 +182,24 @@ function gidVisible_(hoja) {
 /** Dirección de la planilla del alumno, directo en la pestaña de la semana actual. Solo se arma con IDs que pasaron idDePlanilla_. */
 function urlRutina_(idPlanilla, gid) {
   return `https://docs.google.com/spreadsheets/d/${idPlanilla}/edit` + (Number.isInteger(gid) && gid >= 0 ? `#gid=${gid}` : '');
+}
+
+/** El catálogo de ejercicios, de la planilla CATALOGO_ID. Se guarda 6 horas en memoria; si falla, devuelve [] y todo sigue andando. */
+function leerCatalogo_() {
+  if (!CATALOGO_ID) return [];
+  const memoria = CacheService.getScriptCache();
+  try {
+    const guardado = memoria.get('catalogo');
+    if (guardado) return JSON.parse(guardado);
+    const hoja = SpreadsheetApp.openById(CATALOGO_ID).getSheets()[0];
+    const lista = armarCatalogo_(hoja.getDataRange().getValues());
+    try { memoria.put('catalogo', JSON.stringify(lista), SEGUNDOS_CATALOGO); } catch (err) { /* sin memoria: se lee cada vez */ }
+    return lista;
+  } catch (err) {
+    Logger.log(`No se pudo leer el catálogo de ejercicios: ${err}`);
+    try { memoria.put('catalogo', '[]', 300); } catch (e) { /* sin memoria: se reintenta */ } // si falla, no insiste en cada consulta
+    return [];
+  }
 }
 
 // ---------- Alumnos, claves y seguridad ----------
@@ -261,7 +313,7 @@ function doGet(e) {
 
   let datos;
   try {
-    datos = leerPlanilla_(SpreadsheetApp.openById(alumno.planilla));
+    datos = leerPlanilla_(SpreadsheetApp.openById(alumno.planilla), leerCatalogo_());
   } catch (err) {
     Logger.log(`No se pudo leer la planilla de ${alumno.nombre}: ${err}`);
     return respuesta_({ ok: false, error: 'No pude leer tu planilla. Avisale a tu entrenador.' });
@@ -281,7 +333,7 @@ function probarLectura() {
   const LINK_O_ID = ''; // <- pegá acá el link de la planilla a probar
   const id = idDePlanilla_(LINK_O_ID);
   if (!id) throw new Error('Pegá el link de una planilla en LINK_O_ID, dentro de probarLectura.');
-  const d = leerPlanilla_(SpreadsheetApp.openById(id));
+  const d = leerPlanilla_(SpreadsheetApp.openById(id), leerCatalogo_());
   const porEj = {};
   d.series.forEach(s => { porEj[s.ejercicio] = (porEj[s.ejercicio] || 0) + 1; });
   Logger.log(`Series por ejercicio: ${JSON.stringify(porEj)}`);
@@ -304,7 +356,7 @@ function medirTiempos(entrada) {
   const ss = paso('Abrir la planilla', () => SpreadsheetApp.openById(id));
   const hojas = paso('Listar las pestañas', () => ss.getSheets());
   paso(`Leer el nombre de ${hojas.length} pestañas`, () => hojas.map(h => h.getName()));
-  const datos = paso('Lectura completa (lo que hace el dashboard)', () => leerPlanilla_(ss));
+  const datos = paso('Lectura completa (lo que hace el dashboard)', () => leerPlanilla_(ss, leerCatalogo_()));
   lineas.push(`Series leídas: ${datos.series.length} · días tildados: ${datos.asistencia.length}`);
   lineas.push(`TOTAL: ${Date.now() - inicio} ms`);
   Logger.log(lineas.join('\n'));

@@ -20,7 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet"></noscript>
   <link rel="stylesheet" href="styles.css?v=7394b36f">
-  <link rel="stylesheet" href="progreso/progreso.css?v=7771f0a7">
+  <link rel="stylesheet" href="progreso/progreso.css?v=0ab32e03">
 </head>
 <body>
   <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -59,7 +59,13 @@
         <input id="peso" type="text" inputmode="decimal" maxlength="6" placeholder="Ej: 75,5" autocomplete="off">
         <p class="nota" id="peso-nota">Escribilo para ver tu fuerza relativa. Queda guardado en este dispositivo.</p>
       </div>
-      <div class="filtros" id="selector-ejercicio" role="group" aria-label="Ejercicio"></div>
+      <div class="selector-ejercicio" id="selector-ejercicio" hidden>
+        <div class="filtros" id="principales" role="group" aria-label="Ejercicios principales"></div>
+        <div class="selectores">
+          <label>Grupo <select id="sel-grupo"></select></label>
+          <label>Ejercicio <select id="sel-ejercicio"></select></label>
+        </div>
+      </div>
     </div>
 
     <div class="filtros" role="group" aria-label="Período">
@@ -73,7 +79,7 @@
     <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
   </main>
 
-  <script src="progreso/calculos.js?v=ddd6b6ca"></script>
-  <script src="progreso/progreso.js?v=8bdd935f"></script>
+  <script src="progreso/calculos.js?v=c4a6670a"></script>
+  <script src="progreso/progreso.js?v=ae0cbc98"></script>
 </body>
 </html>
