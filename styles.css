@@ -364,6 +364,9 @@ main.inicio { max-width: none; padding: 0; overflow-x: clip; }
 @media (max-width: 720px) {
   .hero-grid { grid-template-columns: 1fr; }
   .hero .lema { font-size: 1.05rem; margin-bottom: 1.25rem; }
+  .titular { font-size: clamp(2.8rem, 13vw, 4.4rem); } /* en el celular el título ocupa todo el ancho, sin hueco a la derecha */
+  .hero-texto { align-items: stretch; }
+  .hero .acciones .boton { display: block; width: 100%; text-align: center; }
   .hero-foto .marco { aspect-ratio: 4 / 3; }
   .hero-foto img { object-position: center 35%; }
   .trabajo { grid-template-columns: 1fr; gap: 1.75rem; }
