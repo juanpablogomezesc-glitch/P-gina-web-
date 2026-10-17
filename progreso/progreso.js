@@ -216,8 +216,8 @@
     const hoy = hoyIso();
     const rachaInfo = P.rachaSemanas(datos.asistencia, hoy);
     dato('Racha', `${rachaInfo.racha} <small>${rachaInfo.racha === 1 ? 'semana' : 'semanas'}</small>`, 'completas seguidas');
-    const mejor = Math.max(P.mejorRachaSemanas(datos.asistencia), rachaInfo.racha);
-    dato('Mejor racha', `${mejor} <small>${mejor === 1 ? 'semana' : 'semanas'}</small>`, rachaInfo.racha > 0 && rachaInfo.racha >= mejor ? '¡Estás en tu mejor momento!' : 'tu récord histórico');
+    const total = P.semanasEntrenadas(datos.series, datos.asistencia);
+    dato('Semanas entrenando', `${total} <small>${total === 1 ? 'semana' : 'semanas'}</small>`, 'desde que empezaste');
     pintarMensaje(rachaInfo, hoy);
 
     const grupos = P.agruparEjercicios(datos.series, datos.categorias);

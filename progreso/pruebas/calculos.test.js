@@ -254,13 +254,10 @@ test('recordsRecientes mira todos los ejercicios, no solo los 4 principales', ()
   assert.deepEqual(r.map(x => [x.ejercicio, x.kg]), [['Prensa 45º', 120]]); // la sentadilla no tiene una marca anterior para superar
 });
 
-test('mejorRachaSemanas es la racha más larga de semanas completas seguidas', () => {
-  const sem = (lunes, dias) => dias.map(d => { const f = new Date(Date.UTC(...lunes.split('-').map((x, i) => (i === 1 ? +x - 1 : +x))) + d * 864e5); return f.toISOString().slice(0, 10); });
-  const tres = l => sem(l, [0, 2, 4]);
-  // semanas completas: 5, 12 y 19 de oct. (3 seguidas), una floja el 26, y otras 2 seguidas desde el 9 de nov.
-  const fechas = [...tres('2026-10-05'), ...tres('2026-10-12'), ...tres('2026-10-19'), ...sem('2026-10-26', [0]), ...tres('2026-11-09'), ...tres('2026-11-16')];
-  assert.equal(P.mejorRachaSemanas(fechas), 3);
-  assert.equal(P.mejorRachaSemanas([]), 0);
-  assert.equal(P.mejorRachaSemanas(sem('2026-10-05', [0, 1])), 0);  // no llega a 3 días
-  assert.equal(P.mejorRachaSemanas([...tres('2026-10-05'), ...tres('2026-10-12'), ...tres('2026-10-12')]), 2); // fechas repetidas no suman
+test('semanasEntrenadas cuenta las semanas con pesos o con días tildados, lo que dé más', () => {
+  const sr = semana => ({ semana, ejercicio: 'Prensa', kg: 50, reps: 5 });
+  assert.equal(P.semanasEntrenadas([sr(1), sr(1), sr(2), sr(5)], []), 3);                          // 3 semanas distintas con pesos
+  assert.equal(P.semanasEntrenadas([], ['2026-10-05', '2026-10-07', '2026-10-14']), 2);             // 2 semanas del calendario
+  assert.equal(P.semanasEntrenadas([sr(1)], ['2026-10-05', '2026-10-14', '2026-10-21']), 3);        // gana el calendario
+  assert.equal(P.semanasEntrenadas([], []), 0);
 });

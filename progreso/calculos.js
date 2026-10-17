@@ -178,7 +178,6 @@
     return { semana: a.semana, anteriorSemana: b.semana, actual: a.valor, anterior: b.valor, diferencia: Math.round((a.valor - b.valor) * 2) / 2 };
   }
 
-  const sumarSemana = iso => aIso(new Date(aFecha(iso).getTime() + 7 * DIA_MS));
   const restarSemana = iso => aIso(new Date(aFecha(iso).getTime() - 7 * DIA_MS));
 
   /**
@@ -196,19 +195,14 @@
     return { racha, diasSemanaActual, faltan: Math.max(0, minimo - diasSemanaActual) };
   }
 
-  /** La racha más larga de semanas completas seguidas de toda la historia (incluye la actual si está completa). */
-  function mejorRachaSemanas(fechas, minimo = DIAS_PARA_SEMANA_COMPLETA) {
-    const porSemana = new Map();
-    [...new Set(fechas)].forEach(f => { const l = lunes(f); porSemana.set(l, (porSemana.get(l) || 0) + 1); });
-    const completas = new Set([...porSemana.entries()].filter(([, n]) => n >= minimo).map(([l]) => l));
-    let mejor = 0;
-    completas.forEach(l => {
-      if (completas.has(restarSemana(l))) return; // no es el comienzo de una racha
-      let largo = 0, cursor = l;
-      while (completas.has(cursor)) { largo++; cursor = sumarSemana(cursor); }
-      if (largo > mejor) mejor = largo;
-    });
-    return mejor;
+  /**
+   * Total de semanas que la persona entrena desde que empezó: semanas con peso cargado en la planilla o con al menos un día
+   * tildado en el calendario (lo que dé más, por si una de las dos fuentes está incompleta).
+   */
+  function semanasEntrenadas(series, fechas) {
+    const conPesos = new Set(series.map(s => s.semana)).size;
+    const conAsistencia = new Set(fechas.map(lunes)).size;
+    return Math.max(conPesos, conAsistencia);
   }
 
   /** Un mensaje corto según cómo viene la persona. Sin promesas ni comparaciones con otros. */
@@ -290,6 +284,6 @@
     return { nombre, series, categorias, asistencia, objetivos, actualizado, rutina, rutinaSemana };
   }
 
-  return { EJERCICIOS, agruparEjercicios, ejercicioInicial, nombresDeEjercicios, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, mejorRachaSemanas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
+  return { EJERCICIOS, agruparEjercicios, ejercicioInicial, nombresDeEjercicios, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, semanasEntrenadas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
     mejoresPorReps, resumenEjercicio, desdeUltimasSemanas, diasEntrenados, diasPorMes, semanasCompletas };
 });
