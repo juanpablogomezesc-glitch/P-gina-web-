@@ -16,6 +16,8 @@ const PAGINA = 'https://juanpablogomezesc-glitch.github.io/P-gina-web-/progreso.
 // Si queda vacío o no se puede abrir, el dashboard igual funciona: los ejercicios aparecen sin grupo ("Otros").
 const CATALOGO_ID = '1s3DHYKr7bAW3KNeRgbyS14mpGr83Hf3ynBZL7cTuszg';
 const SEGUNDOS_CATALOGO = 21600;     // el catálogo se vuelve a leer cada 6 horas
+const SEGUNDOS_HISTORIAL = 21600;    // las semanas viejas de cada alumno (que ya no cambian) se guardan 6 horas: así "Actualizar" solo relee las últimas semanas
+const SEMANAS_RECIENTES = 3;         // estas semanas más nuevas se leen siempre de la planilla (son las que el alumno va completando)
 const SEMANAS_MAXIMO = 200;          // tope de pestañas "Semana N" que se leen por alumno
 const SEGUNDOS_EN_MEMORIA = 300;     // una consulta repetida en 5 minutos no vuelve a leer la planilla
 const SEGUNDOS_MINIMOS_ENTRE_LECTURAS = 30; // el botón "Actualizar" de la página no lee la planilla más de una vez cada 30 segundos
@@ -132,8 +134,11 @@ function objetivosMensuales_(valores) {
 /** Las pestañas con el calendario de tildes: "Control Mensual" (la que usan los alumnos) o "Asistencia AAAA". No cuenta "Control Mensual (anterior)". */
 const esHojaAsistencia_ = nombre => /^\s*(Control Mensual|Asistencia\s+\d{4})\s*$/i.test(String(nombre));
 
-/** Devuelve { series, categorias, asistencia, objetivos, semanaActual } de una planilla abierta. `catalogo` es la lista de armarCatalogo_. */
-function leerPlanilla_(ss, catalogo) {
+/**
+ * Devuelve { series, categorias, asistencia, objetivos, semanaActual, historia } de una planilla abierta. `catalogo` es la lista de armarCatalogo_.
+ * `previo` (opcional) es la `historia` de una lectura anterior: { hasta, series }. Las semanas hasta ese número no se vuelven a leer de la planilla.
+ */
+function leerPlanilla_(ss, catalogo, previo) {
   const hojas = ss.getSheets();
   const semanas = [], asistencias = [];
   hojas.forEach(h => {
@@ -148,8 +153,12 @@ function leerPlanilla_(ss, catalogo) {
   // Todos los ejercicios con peso. Si está en el catálogo se usa su nombre y su categoría; si no, queda tal cual lo escribiste en la planilla.
   const porClave = new Map();
   (catalogo || []).forEach(x => { if (!porClave.has(claveNombre_(x.nombre))) porClave.set(claveNombre_(x.nombre), x); });
-  const series = [], vistas = new Set(), categorias = {};
+  const hasta = semanas.length ? Math.max(0, semanas[0].n - SEMANAS_RECIENTES) : 0; // hasta acá las semanas ya están cerradas
+  const usable = previo && Number.isInteger(previo.hasta) && previo.hasta > 0 && previo.hasta <= hasta && Array.isArray(previo.series);
+  const corte = usable ? previo.hasta : 0; // lo que ya está en `previo` no se lee de nuevo
+  const series = usable ? previo.series.slice() : [], vistas = new Set();
   for (const s of semanas.slice(0, SEMANAS_MAXIMO)) {
+    if (s.n <= corte) break; // las semanas más viejas ya vienen guardadas
     const filas = s.hoja.getRange(1, 1, Math.min(s.hoja.getMaxRows(), 80), 12).getValues();
     if (!esFormatoNuevo_(filas)) break; // desde acá para atrás son pestañas con el formato viejo
     leerSemana_(filas).forEach(x => {
@@ -160,9 +169,10 @@ function leerPlanilla_(ss, catalogo) {
       if (vistas.has(marca)) return; // series repetidas (3 × 5 con 80 kg) valen una sola vez: para los gráficos da igual y pesa menos
       vistas.add(marca);
       series.push({ semana: s.n, ejercicio: nombre, kg: x.kg, reps: x.reps });
-      if (enCatalogo) categorias[nombre] = enCatalogo.categoria;
     });
   }
+  const categorias = {};
+  series.forEach(x => { const c = porClave.get(claveNombre_(x.ejercicio)); if (c) categorias[x.ejercicio] = c.categoria; });
   series.sort((a, b) => a.semana - b.semana);
 
   let asistencia = [], objetivos = {};
@@ -171,7 +181,8 @@ function leerPlanilla_(ss, catalogo) {
     asistencia = asistencia.concat(fechasMarcadas_(valores));
     Object.assign(objetivos, objetivosMensuales_(valores));
   });
-  return { series, categorias, asistencia: asistencia.sort(), objetivos, semanaActual };
+  const historia = { hasta, series: series.filter(x => x.semana <= hasta) };
+  return { series, categorias, asistencia: asistencia.sort(), objetivos, semanaActual, historia };
 }
 
 /** Número de pestaña (gid) para abrir directo en ella; si la pestaña está oculta, Google no la muestra, así que no se usa. */
@@ -312,13 +323,17 @@ function doGet(e) {
   }
 
   let datos;
+  const llaveHistoria = `h_${clave}_${alumno.planilla}`;
+  let previo = null;
+  try { previo = JSON.parse(memoria.get(llaveHistoria)); } catch (err) { previo = null; }
   try {
-    datos = leerPlanilla_(SpreadsheetApp.openById(alumno.planilla), leerCatalogo_());
+    datos = leerPlanilla_(SpreadsheetApp.openById(alumno.planilla), leerCatalogo_(), previo);
   } catch (err) {
     Logger.log(`No se pudo leer la planilla de ${alumno.nombre}: ${err}`);
     return respuesta_({ ok: false, error: 'No pude leer tu planilla. Avisale a tu entrenador.' });
   }
-  const { semanaActual, ...resto } = datos;
+  const { semanaActual, historia, ...resto } = datos;
+  try { memoria.put(llaveHistoria, JSON.stringify(historia), SEGUNDOS_HISTORIAL); } catch (err) { /* si es muy grande, simplemente no se guarda */ }
   const texto = JSON.stringify({
     ok: true, nombre: alumno.nombre, actualizado: new Date().toISOString(), ...resto,
     rutina: urlRutina_(alumno.planilla, semanaActual && semanaActual.gid), // el botón "Mi rutina": la planilla de ESTE alumno, nada más

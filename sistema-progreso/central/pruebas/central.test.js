@@ -389,3 +389,64 @@ test('si el catálogo no se puede leer, el dashboard sigue funcionando sin categ
   assert.equal(a.ok, true);
   assert.deepEqual(a.categorias, {});
 });
+
+// ---- semanas viejas guardadas ----
+function planillaConLecturas(cantidad) {
+  const lecturas = {};
+  const hojas = [];
+  for (let n = 1; n <= cantidad; n++) {
+    const h = semana(n, [fila('Sentadilla C/B', 1, 5, 50 + n), fila('Prensa 45º', 1, 8, 100 + n)]);
+    const getRange = h.getRange;
+    h.getRange = (...a) => { lecturas[n] = (lecturas[n] || 0) + 1; return getRange(...a); };
+    hojas.push(h);
+  }
+  return { ss: planilla(hojas), lecturas };
+}
+
+test('guarda las semanas cerradas y en la lectura siguiente solo relee las más nuevas, con el mismo resultado', () => {
+  const { api } = entorno();
+  const a = planillaConLecturas(10);
+  const completa = api.leerPlanilla_(a.ss, []);
+  assert.equal(completa.historia.hasta, 7, 'se releen siempre las 3 semanas más nuevas');
+  assert.deepEqual(Array.from(completa.historia.series, s => s.semana).filter((v, i, t) => t.indexOf(v) === i), [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(Object.keys(a.lecturas).length, 10, 'la primera vez lee todo');
+
+  const b = planillaConLecturas(10);
+  const previo = JSON.parse(JSON.stringify(completa.historia));
+  const incremental = api.leerPlanilla_(b.ss, [], previo);
+  assert.deepEqual(Object.keys(b.lecturas).map(Number).sort((x, y) => x - y), [8, 9, 10], 'solo las 3 últimas');
+  assert.deepEqual(JSON.parse(JSON.stringify(incremental.series)), JSON.parse(JSON.stringify(completa.series)));
+});
+
+test('si aparece una semana nueva, la que se cerró se agrega al historial', () => {
+  const { api } = entorno();
+  const completa = api.leerPlanilla_(planillaConLecturas(10).ss, []);
+  const b = planillaConLecturas(11);
+  const r = api.leerPlanilla_(b.ss, [], JSON.parse(JSON.stringify(completa.historia)));
+  assert.deepEqual(Object.keys(b.lecturas).map(Number).sort((x, y) => x - y), [8, 9, 10, 11]);
+  assert.equal(r.historia.hasta, 8);
+  assert.equal(new Set(Array.from(r.series, s => s.semana)).size, 11);
+});
+
+test('un historial que no sirve (inventado, de otra planilla más nueva o mal formado) se ignora y se lee todo', () => {
+  const { api } = entorno();
+  for (const previo of [null, undefined, {}, { hasta: 50, series: [] }, { hasta: 'x', series: [] }, { hasta: 5 }, { hasta: 0, series: [] }]) {
+    const b = planillaConLecturas(10);
+    const r = api.leerPlanilla_(b.ss, [], previo);
+    assert.equal(Object.keys(b.lecturas).length, 10, JSON.stringify(previo));
+    assert.equal(new Set(Array.from(r.series, s => s.semana)).size, 10);
+  }
+});
+
+test('la categoría se calcula con el catálogo actual también para las semanas guardadas', () => {
+  const { api } = entorno();
+  const catalogo = api.armarCatalogo_([['Piernas_Empuje'], ['Prensa 45º']]);
+  const previo = { hasta: 7, series: [{ semana: 1, ejercicio: 'Prensa 45º', kg: 100, reps: 8 }] };
+  const r = api.leerPlanilla_(planillaConLecturas(10).ss, catalogo, previo);
+  assert.equal(r.categorias['Prensa 45º'], 'Piernas · empuje');
+});
+
+test('la respuesta del dashboard no incluye el historial interno', () => {
+  const { get } = entorno({ alumnos, planillas });
+  assert.ok(!('historia' in get({ accion: 'progreso', clave: CLAVE_A })));
+});
