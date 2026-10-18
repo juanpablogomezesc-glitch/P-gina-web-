@@ -231,13 +231,14 @@ test('limpiarRespuesta junta nombres escritos distinto, recorta nombres largos y
   assert.deepEqual(P.limpiarRespuesta({ categorias: [1, 2] }).categorias, {});
 });
 
-test('agruparEjercicios ordena por grupo y deja "Otros" al final', () => {
+test('agruparEjercicios deja siempre tren superior, tren inferior y core, y "Otros" al final', () => {
   const sr = (semana, ejercicio) => ({ semana, ejercicio, kg: 50, reps: 5 });
-  const series = [sr(1, 'Remo en TRX'), sr(1, 'Press Plano C/B'), sr(2, 'Press Plano C/B'), sr(3, 'Press Plano C/B'), sr(1, 'Press Plano C/M'), sr(1, 'Sentadilla C/B'), sr(2, 'Sentadilla C/B')];
-  const g = P.agruparEjercicios(series, { 'Press Plano C/B': 'Empuje', 'Press Plano C/M': 'Empuje', 'Sentadilla C/B': 'Piernas' });
-  assert.deepEqual(g.map(x => x.grupo), ['Empuje', 'Piernas', 'Otros']);
+  const series = [sr(1, 'Remo en TRX'), sr(1, 'Press Plano C/B'), sr(2, 'Press Plano C/B'), sr(3, 'Press Plano C/B'), sr(1, 'Press Plano C/M'), sr(1, 'Sentadilla C/B'), sr(2, 'Sentadilla C/B'), sr(1, 'Swing'), sr(2, 'Swing'), sr(3, 'Swing'), sr(4, 'Swing')];
+  const g = P.agruparEjercicios(series, { 'Press Plano C/B': 'Tren superior', 'Press Plano C/M': 'Tren superior', 'Sentadilla C/B': 'Tren inferior', Swing: 'Core' });
+  assert.deepEqual(g.map(x => x.grupo), ['Tren superior', 'Tren inferior', 'Core', 'Otros']); // aunque Core tenga más semanas de datos
   assert.deepEqual(g[0].ejercicios, ['Press Plano C/B', 'Press Plano C/M']);
-  assert.deepEqual(g[2].ejercicios, ['Remo en TRX']);
+  assert.deepEqual(g[3].ejercicios, ['Remo en TRX']);
+  assert.deepEqual(P.agruparEjercicios(series.slice(5, 7), { 'Sentadilla C/B': 'Tren inferior' }).map(x => x.grupo), ['Tren inferior']); // solo los que tienen datos
   assert.deepEqual(P.agruparEjercicios([], {}), []);
 });
 

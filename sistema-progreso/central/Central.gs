@@ -37,20 +37,26 @@ const limpiarNombre_ = t => String(t).replace(/\s+/g, ' ').trim();
 const numero_ = v => (typeof v === 'number' && isFinite(v) ? v : null);
 const claveNombre_ = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-/** "Piernas_Rodilla_Dominante" → "Piernas · rodilla dominante"; "PLYO_BOX" → "Plyo · box"; "Med Ball " → "Med ball". */
-function etiquetaCategoria_(titulo) {
-  const partes = String(titulo).split('_').map(t => limpiarNombre_(t).toLowerCase()).filter(Boolean);
-  if (!partes.length) return '';
-  const cabeza = partes[0].charAt(0).toUpperCase() + partes[0].slice(1);
-  return partes.length > 1 ? `${cabeza} · ${partes.slice(1).join(' ')}` : cabeza;
+/**
+ * Las columnas del catálogo se agrupan en solo tres grupos para el dashboard: "Tren superior", "Tren inferior" y "Core".
+ * Se decide por el título de la columna: *_Tren_Superior → superior; Core_*, Dead_Bug, TGU y Med Ball → core;
+ * Piernas_*, Iso_Push, Derivados_OLY, Activadores y PLYO_* → inferior. Una columna nueva que no encaje queda en "Otros".
+ */
+function grupoDeCategoria_(titulo) {
+  const t = titulo == null ? '' : claveNombre_(titulo).replace(/\s+/g, '_');
+  if (!t) return '';
+  if (/tren_superior/.test(t)) return 'Tren superior';
+  if (/^core|^dead_bug|^tgu|^med_ball/.test(t)) return 'Core';
+  if (/^piernas|^iso_push|^derivados_oly|^activadores|^plyo/.test(t)) return 'Tren inferior';
+  return 'Otros';
 }
 
-/** La hoja del catálogo (una categoría por columna, sus ejercicios hacia abajo) → [{ nombre, categoria }] en el orden de la hoja. */
+/** La hoja del catálogo (una categoría por columna, sus ejercicios hacia abajo) → [{ nombre, categoria }] en el orden de la hoja (la categoría es uno de los grupos de grupoDeCategoria_). */
 function armarCatalogo_(valores) {
   const lista = [];
   const titulos = valores[0] || [];
   titulos.forEach((titulo, c) => {
-    const categoria = etiquetaCategoria_(titulo);
+    const categoria = grupoDeCategoria_(titulo);
     if (!categoria) return;
     for (let f = 1; f < valores.length; f++) {
       const nombre = limpiarNombre_(valores[f][c] == null ? '' : valores[f][c]);

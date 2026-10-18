@@ -139,10 +139,11 @@
   }
 
   const SIN_GRUPO = 'Otros';
+  const ORDEN_GRUPOS = ['Tren superior', 'Tren inferior', 'Core']; // siempre en este orden; cualquier otro grupo va después y "Otros" al final
 
   /**
    * Ordena los ejercicios del alumno por grupo para los selectores: [{ grupo, ejercicios: [nombre] }].
-   * Los grupos y los ejercicios con más semanas de datos van primero; lo que no tiene categoría va a "Otros", al final.
+   * Los grupos van en el orden de ORDEN_GRUPOS y los ejercicios con más semanas de datos primero; lo que no tiene categoría va a "Otros", al final.
    */
   function agruparEjercicios(series, categorias) {
     const cat = new Map(Object.keys(categorias || {}).map(k => [clave(k), categorias[k]]));
@@ -159,7 +160,8 @@
       grupo,
       ejercicios: ejercicios.sort((a, b) => semanas.get(clave(b)).size - semanas.get(clave(a)).size || a.localeCompare(b, 'es')),
     }));
-    return lista.sort((a, b) => (a.grupo === SIN_GRUPO) - (b.grupo === SIN_GRUPO) || peso(b) - peso(a) || a.grupo.localeCompare(b.grupo, 'es'));
+    const lugar = g => (g === SIN_GRUPO ? 99 : ORDEN_GRUPOS.indexOf(g) >= 0 ? ORDEN_GRUPOS.indexOf(g) : 50);
+    return lista.sort((a, b) => lugar(a.grupo) - lugar(b.grupo) || peso(b) - peso(a) || a.grupo.localeCompare(b.grupo, 'es'));
   }
 
   /** Con qué ejercicio abrir: el primero de los 4 principales que tenga datos; si no, el que más semanas tenga. */
