@@ -374,7 +374,7 @@ main.inicio { max-width: none; padding: 0; overflow-x: clip; }
   .trabajo .numero { grid-row: span 2; font-size: 4rem; margin: 0; }
   .trabajo h3 { margin: 0 0 0.35rem; }
   .sobre-mi-grid { grid-template-columns: 1fr; }
-  .sobre-mi .retrato { width: 160px; height: 160px; }
+  .sobre-mi .retrato { width: 210px; height: 210px; }
 }
 
 /* Menos movimiento: se quedan los fundidos y se van los desplazamientos */
