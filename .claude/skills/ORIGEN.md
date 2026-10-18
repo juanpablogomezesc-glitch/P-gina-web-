@@ -8,8 +8,8 @@ Para actualizarlas, volver a copiar la carpeta `skills/` del repositorio origina
 
 Las que más se usan en este proyecto: `emil-design-eng`, `animate`, `review-animations`,
 `mobile-native`, `break-ui`, `prototype` y `find-animation-opportunities`.
-No aplican a una página web: `write-swift`, `animate-expo` (React Native) y `ask-sonner`
-(librería de React). Se pueden borrar sin afectar al resto.
+Se borraron `write-swift`, `animate-expo` (React Native) y `ask-sonner` (librería de React)
+porque no aplican a una página web y ocupaban lugar en cada conversación.
 
 ---
 
