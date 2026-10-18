@@ -115,7 +115,7 @@
     gruposActuales = grupos;
     document.getElementById('selector-ejercicio').hidden = !grupos.length;
     const grupoActual = grupos.find(g => g.ejercicios.includes(ejercicio)) || grupos[0];
-    selGrupo.replaceChildren(...grupos.map(g => opcion(`${g.grupo} (${g.ejercicios.length})`, g.grupo, g === grupoActual)));
+    selGrupo.replaceChildren(...grupos.map(g => opcion(g.grupo, g.grupo, g === grupoActual)));
     selEjercicio.replaceChildren(...(grupoActual ? grupoActual.ejercicios : []).map(n => opcion(n, n, n === ejercicio)));
   }
   selGrupo.addEventListener('change', () => { const g = gruposActuales.find(x => x.grupo === selGrupo.value); if (g) elegir(g.ejercicios[0]); });
