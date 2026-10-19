@@ -94,17 +94,37 @@
 @media (hover: hover) and (pointer: fine) { .selectores select:hover { background-color: rgba(255, 107, 26, 0.24); } }
 @media (prefers-reduced-motion: reduce) { .selectores select:active { transform: none; } }
 
-/* Días de la rutina: una fila por semana, un casillero por día */
-.pr-semana-dias { margin-top: 12px; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 14px 16px; }
-.progreso .pr-semana-dias .dias-mensaje { color: var(--texto); font-weight: 600; line-height: 1.4; margin-bottom: 12px; max-width: none; }
-.pr-semana-dias .semana-fila { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-top: 1px solid var(--borde); }
-.pr-semana-dias .semana-fila:first-of-type { border-top: 0; }
-.pr-semana-dias .semana-nombre { flex: 0 0 5.2rem; color: var(--suave); font-size: .82rem; font-variant-numeric: tabular-nums; }
-.pr-semana-dias .semana-dias { display: flex; flex-wrap: wrap; gap: 6px; }
-.pr-semana-dias .casillero { min-width: 44px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--borde); text-align: center; font: 600 .8rem var(--fuente-texto); font-variant-numeric: tabular-nums; color: var(--suave); }
+/* Días de la rutina: una tarjeta por semana, un casillero por día */
+.pr-semana-dias { margin-top: 12px; display: grid; gap: 10px; }
+.progreso .pr-semana-dias .dias-mensaje { color: var(--texto); font-weight: 600; line-height: 1.45; max-width: none; padding: 12px 14px; background: var(--acento-suave); border-left: 4px solid var(--acento); border-radius: 10px; }
+.pr-semana-dias .semana-fila { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 12px 14px; }
+.pr-semana-dias .semana-fila:first-of-type { border-color: rgba(255, 107, 26, .35); }
+.pr-semana-dias .semana-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.pr-semana-dias .semana-nombre { display: flex; align-items: center; gap: 8px; color: var(--suave); font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.pr-semana-dias .semana-nombre b { font: 700 1.35rem var(--fuente-titulos); color: var(--texto); letter-spacing: .02em; line-height: 1; }
+.pr-semana-dias .semana-nombre em { font-style: normal; font-size: .65rem; padding: 3px 8px; border-radius: 999px; background: var(--acento-suave); color: var(--acento); border: 1px solid rgba(255, 107, 26, .35); }
+.pr-semana-dias .semana-cuenta { color: var(--suave); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.pr-semana-dias .semana-dias { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 8px; }
+.pr-semana-dias .casillero { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--borde); background: rgba(255, 255, 255, .02); color: var(--suave); }
+.pr-semana-dias .c-dia { font: 600 .72rem var(--fuente-texto); letter-spacing: .04em; text-transform: uppercase; }
+.pr-semana-dias .c-marca { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid currentColor; font: 700 .9rem/1 var(--fuente-texto); opacity: .9; }
 .pr-semana-dias .casillero.hecho { background: var(--acento); border-color: var(--acento); color: #0d0d0d; }
-.pr-semana-dias .casillero.falto { border-style: dashed; color: var(--suave); }
+.pr-semana-dias .casillero.hecho .c-marca { background: #0d0d0d; border-color: #0d0d0d; color: var(--acento); opacity: 1; }
+.pr-semana-dias .casillero.falto { border-style: dashed; }
+.pr-semana-dias .casillero.falto .c-marca { border-style: dashed; opacity: .6; }
 .pr-semana-dias .casillero.pendiente { color: var(--texto); }
-.pr-semana-dias .leyenda { margin-top: 10px; color: var(--suave); font-size: .78rem; }
-.progreso .pr-records { margin-top: 12px; padding: 14px 16px; background: var(--acento-suave); border: 1px solid rgba(255, 107, 26, .35); border-left: 4px solid var(--acento); border-radius: 10px; }
-.progreso .pr-records .mensaje-texto { margin-bottom: 8px; }
+.pr-semana-dias .casillero.pendiente .c-marca { border-style: dotted; opacity: .5; }
+.pr-semana-dias .leyenda { color: var(--suave); font-size: .78rem; line-height: 1.4; max-width: none; }
+
+/* Aviso de récords */
+.progreso .pr-records { margin-top: 12px; padding: 14px 16px; background: linear-gradient(135deg, rgba(255, 107, 26, .16), rgba(255, 107, 26, .04)); border: 1px solid rgba(255, 107, 26, .35); border-radius: 12px; }
+.pr-records .rec-titulo { margin: 0 0 6px; font: 700 .95rem var(--fuente-titulos); letter-spacing: .08em; text-transform: uppercase; color: var(--acento); }
+.pr-records .rec-lista { list-style: none; margin: 0; padding: 0; }
+.pr-records .rec-lista li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 9px 0; border-top: 1px solid rgba(255, 107, 26, .18); }
+.pr-records .rec-lista li:first-child { border-top: 0; }
+.pr-records .rec-estrella { color: var(--acento); }
+.pr-records .rec-nombre { flex: 1 1 10rem; min-width: 0; font-weight: 600; color: var(--texto); }
+.pr-records .rec-valor { font: 700 1.1rem var(--fuente-titulos); letter-spacing: .02em; color: var(--acento); white-space: nowrap; }
+.pr-records .rec-antes { color: var(--suave); font-size: .78rem; white-space: nowrap; }
+.pr-records .rec-sem { font-size: .68rem; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255, 107, 26, .35); color: var(--suave); white-space: nowrap; }
+@media (max-width: 480px) { .pr-records .rec-lista li { display: grid; grid-template-columns: auto 1fr auto; } .pr-records .rec-nombre { grid-column: 2; } .pr-records .rec-valor { grid-column: 3; } .pr-records .rec-antes { grid-column: 2; } .pr-records .rec-sem { grid-column: 3; justify-self: end; } }

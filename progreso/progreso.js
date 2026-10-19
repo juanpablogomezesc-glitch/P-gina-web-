@@ -189,18 +189,28 @@
     if (a.mensaje) { const p = document.createElement('p'); p.className = 'dias-mensaje'; p.textContent = a.mensaje; cont.appendChild(p); }
     a.tira.slice().reverse().forEach(s => {
       const fila = document.createElement('div'); fila.className = 'semana-fila';
-      const nombre = document.createElement('span'); nombre.className = 'semana-nombre'; nombre.textContent = 'Semana ' + s.semana + (s.enCurso ? ' · en curso' : '');
+      const cab = document.createElement('div'); cab.className = 'semana-cab';
+      const nombre = document.createElement('span'); nombre.className = 'semana-nombre';
+      const num = document.createElement('b'); num.textContent = s.semana;
+      nombre.append('Semana ', num);
+      if (s.enCurso) { const chip = document.createElement('em'); chip.textContent = 'en curso'; nombre.appendChild(chip); }
+      const hechos = s.dias.filter(d => d.hecho).length;
+      const cuenta = document.createElement('span'); cuenta.className = 'semana-cuenta'; cuenta.textContent = hechos + ' de ' + s.dias.length;
+      cab.append(nombre, cuenta);
       const dias = document.createElement('div'); dias.className = 'semana-dias';
+      dias.style.setProperty('--n', s.dias.length);
       const partes = [];
       s.dias.forEach(d => {
         const estado = d.hecho ? 'hecho' : (s.enCurso ? 'pendiente' : 'falto');
         const c = document.createElement('span'); c.className = 'casillero ' + estado;
-        c.textContent = 'D' + d.dia + ' ' + (d.hecho ? '✓' : (s.enCurso ? '○' : '–'));
+        const l = document.createElement('span'); l.className = 'c-dia'; l.textContent = 'Día ' + d.dia;
+        const m = document.createElement('span'); m.className = 'c-marca'; m.setAttribute('aria-hidden', 'true'); m.textContent = d.hecho ? '✓' : (s.enCurso ? '' : '–');
+        c.append(l, m);
         dias.appendChild(c);
         partes.push(`día ${d.dia} ${d.hecho ? 'hecho' : (s.enCurso ? 'pendiente' : 'no hecho')}`);
       });
       fila.setAttribute('role', 'group'); fila.setAttribute('aria-label', 'Semana ' + s.semana + ': ' + partes.join(', '));
-      fila.append(nombre, dias); cont.appendChild(fila);
+      fila.append(cab, dias); cont.appendChild(fila);
     });
     const ley = document.createElement('p'); ley.className = 'leyenda';
     ley.textContent = a.mensaje ? `Lo marcás vos en tu planilla. El patrón se calcula con tus últimas ${a.semanasAnalizadas} semanas cerradas.`
@@ -232,11 +242,18 @@
     caja.innerHTML = '';
     caja.hidden = !recientes.length;
     if (!recientes.length) return;
-    const titulo = document.createElement('p'); titulo.className = 'mensaje-texto'; titulo.textContent = recientes.length === 1 ? 'Nuevo récord' : 'Nuevos récords'; caja.appendChild(titulo);
-    const ul = document.createElement('ul'); ul.className = 'mensaje-records';
+    const titulo = document.createElement('p'); titulo.className = 'rec-titulo'; titulo.textContent = recientes.length === 1 ? 'Nuevo récord' : 'Nuevos récords'; caja.appendChild(titulo);
+    const ul = document.createElement('ul'); ul.className = 'rec-lista';
+    const el = (tag, clase, texto) => { const e = document.createElement(tag); e.className = clase; e.textContent = texto; return e; };
     recientes.forEach(r => {
       const li = document.createElement('li');
-      li.textContent = `★ ${r.ejercicio.replace(/ C\/B$/, '')}: ${fmtNum(r.kg)} kg × ${r.reps} (antes ${fmtNum(r.anterior)} kg) · semana ${r.semana}`;
+      li.append(
+        el('span', 'rec-estrella', '★'),
+        el('span', 'rec-nombre', r.ejercicio.replace(/ C\/B$/, '')),
+        el('span', 'rec-valor', `${fmtNum(r.kg)} kg × ${r.reps}`),
+        el('span', 'rec-antes', `antes ${fmtNum(r.anterior)} kg`),
+        el('span', 'rec-sem', 'Sem ' + r.semana)
+      );
       ul.appendChild(li);
     });
     caja.appendChild(ul);
