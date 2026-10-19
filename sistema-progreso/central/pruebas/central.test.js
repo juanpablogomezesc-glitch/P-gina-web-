@@ -85,6 +85,7 @@ test('detecta el formato nuevo por el encabezado y descarta el viejo', () => {
   const { api } = entorno();
   assert.equal(api.esFormatoNuevo_([ENCABEZADO_NUEVO]), true);
   assert.equal(api.esFormatoNuevo_([['', '', '', 'Ejercicios ', 'Obs', '', 'Ser', 'Rep', 'Kilogramos']]), true);
+  assert.equal(api.esFormatoNuevo_([['', '', '', 'Ejercicios ', 'Obs', '', 'SER', '', 'KG', '', '', 'RIR']]), true);   // REP sin título (planilla de Leandro Doldan)
   assert.equal(api.esFormatoNuevo_([ENCABEZADO_VIEJO]), false);
 });
 

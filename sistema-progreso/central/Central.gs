@@ -66,10 +66,11 @@ function armarCatalogo_(valores) {
   return lista;
 }
 
-/** Las pestañas viejas tienen otro orden de columnas: solo se leen las del formato actual. */
+/** Las pestañas viejas tienen otro orden de columnas: solo se leen las del formato actual. El encabezado de REP puede estar vacío (hay planillas así): con Ejercicio, Ser y Kg en su lugar alcanza. */
 function esFormatoNuevo_(filas) {
   const f = filas[0] || [];
-  return /ejercicio/i.test(String(f[3])) && /^\s*ser/i.test(String(f[6])) && /^\s*rep/i.test(String(f[7])) && /^\s*(kg|kilo)/i.test(String(f[8]));
+  const rep = String(f[7] == null ? '' : f[7]);
+  return /ejercicio/i.test(String(f[3])) && /^\s*ser/i.test(String(f[6])) && /^\s*(rep\w*)?\s*$/i.test(rep) && /^\s*(kg|kilo)/i.test(String(f[8]));
 }
 
 /** "5" → 5 · "5   C/L" → 5 (por lado) · '30"' / "1`" (tiempo) → null. */
