@@ -107,20 +107,24 @@
   // ---- Récords, cambio semanal, racha y mensajes ----
 
   /**
-   * ¿Hubo un récord de peso en la última semana con datos del ejercicio? Es récord si supera todo lo levantado antes.
+   * El último récord de peso del ejercicio: la semana más reciente en la que se levantó más que en todas las anteriores.
+   * No tiene que ser la última semana con datos: una semana nueva que copia los mismos kilos de la anterior no supera nada,
+   * y no por eso el récord de la semana pasada deja de ser reciente (de eso se ocupa recordsRecientes).
    * Con un solo dato no hay con qué comparar, así que no cuenta. Devuelve { kg, reps, semana, anterior } o null.
    */
   function nuevoRecord(series, ejercicio) {
-    const propias = series.filter(s => es(s, ejercicio) && s.kg > 0 && s.reps >= 1);
-    if (!propias.length) return null;
-    const ultima = Math.max(...propias.map(s => s.semana));
-    const antes = propias.filter(s => s.semana < ultima);
-    if (!antes.length) return null;
-    const previo = Math.max(...antes.map(s => s.kg));
-    const nuevos = propias.filter(s => s.semana === ultima && s.kg > previo);
-    if (!nuevos.length) return null;
-    const mejor = nuevos.reduce((a, b) => (b.kg > a.kg || (b.kg === a.kg && b.reps > a.reps) ? b : a));
-    return { kg: mejor.kg, reps: mejor.reps, semana: ultima, anterior: previo };
+    const mejorDeSemana = new Map();
+    series.filter(s => es(s, ejercicio) && s.kg > 0 && s.reps >= 1).forEach(s => {
+      const m = mejorDeSemana.get(s.semana);
+      if (!m || s.kg > m.kg || (s.kg === m.kg && s.reps > m.reps)) mejorDeSemana.set(s.semana, s);
+    });
+    let tope = null, ultimo = null;
+    [...mejorDeSemana.keys()].sort((a, b) => a - b).forEach(semana => {
+      const m = mejorDeSemana.get(semana);
+      if (tope !== null && m.kg > tope) ultimo = { kg: m.kg, reps: m.reps, semana, anterior: tope };
+      if (tope === null || m.kg > tope) tope = m.kg;
+    });
+    return ultimo;
   }
 
   /** Nombres de los ejercicios de las series (sin repetir aunque estén escritos distinto), con el primero que aparece como nombre. */

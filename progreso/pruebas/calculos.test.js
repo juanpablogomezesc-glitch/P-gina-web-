@@ -127,12 +127,13 @@ test('limpiarRespuesta aguanta respuestas vacías o de otro tipo', () => {
 
 // ---- récords, cambio semanal, racha, mensajes, "hace cuánto" ----
 
-test('nuevo récord: solo si la última semana supera todo lo anterior (un solo dato no cuenta)', () => {
+test('nuevo récord: la semana más reciente que superó todo lo anterior (un solo dato no cuenta)', () => {
   const base = [s(1, 'Sentadilla C/B', 100, 5), s(2, 'Sentadilla C/B', 110, 3)];
   assert.equal(P.nuevoRecord(base, 'Sentadilla C/B').kg, 110);
   assert.equal(P.nuevoRecord(base, 'Sentadilla C/B').anterior, 100);
-  assert.equal(P.nuevoRecord([...base, s(3, 'Sentadilla C/B', 105, 5)], 'Sentadilla C/B'), null);   // la última semana no superó los 110
-  assert.equal(P.nuevoRecord([...base, s(3, 'Sentadilla C/B', 110, 8)], 'Sentadilla C/B'), null);   // igualar no es récord
+  assert.equal(P.nuevoRecord([...base, s(3, 'Sentadilla C/B', 105, 5)], 'Sentadilla C/B').semana, 2);   // la 3 no superó los 110: el récord sigue siendo el de la 2
+  assert.equal(P.nuevoRecord([...base, s(3, 'Sentadilla C/B', 110, 8)], 'Sentadilla C/B').semana, 2);   // igualar no es récord nuevo
+  assert.equal(P.nuevoRecord([s(1, 'Sentadilla C/B', 100, 5), s(2, 'Sentadilla C/B', 100, 8)], 'Sentadilla C/B'), null);   // nunca superó nada
   assert.equal(P.nuevoRecord([s(1, 'Sentadilla C/B', 100, 5)], 'Sentadilla C/B'), null);            // primer dato: nada con qué comparar
   assert.equal(P.nuevoRecord(base, 'Despegue C/B'), null);
   const dos = P.nuevoRecord([...base, s(3, 'Sentadilla C/B', 115, 1), s(3, 'Sentadilla C/B', 120, 1)], 'Sentadilla C/B');
@@ -321,4 +322,12 @@ test('limpiarRespuesta: descarta tildes de día con forma rara', () => {
   ] });
   assert.deepEqual(r.dias, [{ semana: 100, dia: 1, hecho: true }]);
   assert.deepEqual(P.limpiarRespuesta({ dias: 'x' }).dias, []);
+});
+
+test('récords recientes: una semana nueva copiada con los mismos kilos no esconde el récord de la semana anterior', () => {
+  const copia = [s(100, 'Sentadilla C/B', 110, 3), s(101, 'Sentadilla C/B', 125, 1), s(102, 'Sentadilla C/B', 125, 1)];   // la 102 es la copia de la 101
+  const r = P.recordsRecientes(copia);
+  assert.deepEqual(r.map(x => [x.ejercicio, x.kg, x.semana, x.anterior]), [['Sentadilla C/B', 125, 101, 110]]);
+  // pasada otra semana más sin superar nada, el récord ya no es reciente
+  assert.deepEqual(P.recordsRecientes([...copia, s(103, 'Sentadilla C/B', 125, 1)]), []);
 });

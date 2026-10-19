@@ -106,3 +106,5 @@
 .pr-semana-dias .casillero.falto { border-style: dashed; color: var(--suave); }
 .pr-semana-dias .casillero.pendiente { color: var(--texto); }
 .pr-semana-dias .leyenda { margin-top: 10px; color: var(--suave); font-size: .78rem; }
+.progreso .pr-records { margin-top: 12px; padding: 14px 16px; background: var(--acento-suave); border: 1px solid rgba(255, 107, 26, .35); border-left: 4px solid var(--acento); border-radius: 10px; }
+.progreso .pr-records .mensaje-texto { margin-bottom: 8px; }

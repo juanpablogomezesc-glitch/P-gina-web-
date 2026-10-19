@@ -222,20 +222,29 @@
     });
     caja.innerHTML = '';
     const p = document.createElement('p'); p.className = 'mensaje-texto'; p.textContent = texto; caja.appendChild(p);
-    if (recientes.length) {
-      const ul = document.createElement('ul'); ul.className = 'mensaje-records';
-      recientes.forEach(r => {
-        const li = document.createElement('li');
-        li.textContent = `★ ${r.ejercicio.replace(/ C\/B$/, '')}: ${fmtNum(r.kg)} kg × ${r.reps} (antes ${fmtNum(r.anterior)} kg)`;
-        ul.appendChild(li);
-      });
-      caja.appendChild(ul);
-    }
     caja.hidden = false;
+  }
+
+  /** Los récords de las últimas dos semanas, debajo de los gráficos de días entrenados: "★ Sentadilla: 125 kg × 1 (antes 122,5 kg)". */
+  function pintarRecords() {
+    const caja = document.getElementById('pr-records');
+    const recientes = P.recordsRecientes(datos.series);
+    caja.innerHTML = '';
+    caja.hidden = !recientes.length;
+    if (!recientes.length) return;
+    const titulo = document.createElement('p'); titulo.className = 'mensaje-texto'; titulo.textContent = recientes.length === 1 ? 'Nuevo récord' : 'Nuevos récords'; caja.appendChild(titulo);
+    const ul = document.createElement('ul'); ul.className = 'mensaje-records';
+    recientes.forEach(r => {
+      const li = document.createElement('li');
+      li.textContent = `★ ${r.ejercicio.replace(/ C\/B$/, '')}: ${fmtNum(r.kg)} kg × ${r.reps} (antes ${fmtNum(r.anterior)} kg) · semana ${r.semana}`;
+      ul.appendChild(li);
+    });
+    caja.appendChild(ul);
   }
 
   function render() {
     dibujarDias();
+    pintarRecords();
     dibujarDiasSemana();
     const desde = P.desdeUltimasSemanas(datos.series, semanasFiltro);
     const series = P.desdeSemana(datos.series, desde);
