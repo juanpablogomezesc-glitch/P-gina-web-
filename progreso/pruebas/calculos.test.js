@@ -121,7 +121,7 @@ test('limpiarRespuesta descarta lo que no tiene la forma esperada y no deja pasa
 
 test('limpiarRespuesta aguanta respuestas vacías o de otro tipo', () => {
   for (const x of [null, undefined, 5, 'hola', [], {}, { series: 'x', asistencia: {}, objetivos: [] }]) {
-    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], categorias: {}, asistencia: [], objetivos: {}, actualizado: '', rutina: '', rutinaSemana: null });
+    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], categorias: {}, asistencia: [], objetivos: {}, dias: [], actualizado: '', rutina: '', rutinaSemana: null });
   }
 });
 
@@ -261,4 +261,64 @@ test('semanasEntrenadas cuenta las semanas con pesos o con días tildados, lo qu
   assert.equal(P.semanasEntrenadas([], ['2026-10-05', '2026-10-07', '2026-10-14']), 2);             // 2 semanas del calendario
   assert.equal(P.semanasEntrenadas([sr(1)], ['2026-10-05', '2026-10-14', '2026-10-21']), 3);        // gana el calendario
   assert.equal(P.semanasEntrenadas([], []), 0);
+});
+
+// ---- días de la rutina (tildes "DÍA n") ----
+const sem = (semana, hechos, total = 4) => Array.from({ length: total }, (_, i) => ({ semana, dia: i + 1, hecho: hechos.includes(i + 1) }));
+const juntar = (...semanas) => semanas.flat();
+
+test('analizarDias: sin datos devuelve null', () => {
+  assert.equal(P.analizarDias([]), null);
+  assert.equal(P.analizarDias(undefined), null);
+});
+
+test('analizarDias: la semana más nueva está en curso y no cuenta como falta; con pocas semanas no hay mensaje', () => {
+  const a = P.analizarDias(juntar(sem(100, [1, 2, 3, 4]), sem(101, [1])));
+  assert.equal(a.mensaje, null);
+  assert.equal(a.semanasAnalizadas, 1);
+  assert.deepEqual(a.tira.map(s => [s.semana, s.enCurso]), [[100, false], [101, true]]);
+});
+
+test('analizarDias: todos los días hechos en las semanas cerradas', () => {
+  const a = P.analizarDias(juntar(sem(1, [1, 2, 3, 4]), sem(2, [1, 2, 3, 4]), sem(3, [1, 2, 3, 4]), sem(4, [])));
+  assert.match(a.mensaje, /Completaste todos los días de tus últimas 3 semanas/);
+});
+
+test('analizarDias: casi todos los días', () => {
+  const a = P.analizarDias(juntar(sem(1, [1, 2, 3, 4]), sem(2, [1, 2, 3, 4]), sem(3, [1, 2, 3]), sem(4, [1, 2, 3, 4]), sem(5, [1, 2, 3, 4]), sem(6, [])));
+  assert.match(a.mensaje, /casi todos los días/); // 19 de 20
+});
+
+test('analizarDias: solo hizo el Día 1 en varias semanas', () => {
+  const a = P.analizarDias(juntar(sem(1, [1]), sem(2, [1]), sem(3, [1]), sem(4, [1, 2]), sem(5, [])));
+  assert.match(a.mensaje, /solo el Día 1/);
+});
+
+test('analizarDias: arranca fuerte y cierra flojo', () => {
+  const a = P.analizarDias(juntar(sem(1, [1, 2]), sem(2, [1, 2, 3]), sem(3, [1, 2]), sem(4, [1, 2]), sem(5, [])));
+  assert.match(a.mensaje, /Arrancás la semana con todo/);
+});
+
+test('analizarDias: el día que más se escapa', () => {
+  const a = P.analizarDias(juntar(sem(1, [1, 2, 4]), sem(2, [1, 2, 4]), sem(3, [1, 2, 4]), sem(4, [1, 2, 3, 4]), sem(5, [])));
+  assert.match(a.mensaje, /El Día 3 es el que más se te escapa/);
+});
+
+test('analizarDias: sin patrón claro dice cuántos días hizo, sin juzgar', () => {
+  const a = P.analizarDias(juntar(sem(1, [1, 3]), sem(2, [2, 4]), sem(3, [1, 3]), sem(4, [2, 4]), sem(5, [])));
+  assert.match(a.mensaje, /hiciste 8 de 16 días/);
+});
+
+test('analizarDias: un día repetido cuenta una vez y alcanza con que una fila esté tildada', () => {
+  const a = P.analizarDias([{ semana: 1, dia: 1, hecho: false }, { semana: 1, dia: 1, hecho: true }, { semana: 2, dia: 1, hecho: false }]);
+  assert.deepEqual(a.tira[0].dias, [{ dia: 1, hecho: true }]);
+});
+
+test('limpiarRespuesta: descarta tildes de día con forma rara', () => {
+  const r = P.limpiarRespuesta({ dias: [
+    { semana: 100, dia: 1, hecho: true }, { semana: 100, dia: 2, hecho: 'si' }, { semana: -1, dia: 1, hecho: true },
+    { semana: 100, dia: 0, hecho: false }, { semana: 100, dia: 10, hecho: false }, null, 'x', { semana: 1.5, dia: 1, hecho: true },
+  ] });
+  assert.deepEqual(r.dias, [{ semana: 100, dia: 1, hecho: true }]);
+  assert.deepEqual(P.limpiarRespuesta({ dias: 'x' }).dias, []);
 });
