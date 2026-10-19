@@ -218,7 +218,7 @@
     const texto = P.mensajeMotivacional({
       racha: rachaInfo.racha, diasSemanaActual: rachaInfo.diasSemanaActual, faltan: rachaInfo.faltan,
       objetivoCumplido: hechosMes > 0 && hechosMes >= (objetivos[mesHoy] || OBJETIVO_MENSUAL),
-      record: recientes[0] || null, hayDatos,
+      record: null, hayDatos,   // los récords van en su propio aviso, debajo de los gráficos
     });
     caja.innerHTML = '';
     const p = document.createElement('p'); p.className = 'mensaje-texto'; p.textContent = texto; caja.appendChild(p);
