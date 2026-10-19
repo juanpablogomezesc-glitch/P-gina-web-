@@ -86,6 +86,9 @@ test('detecta el formato nuevo por el encabezado y descarta el viejo', () => {
   assert.equal(api.esFormatoNuevo_([ENCABEZADO_NUEVO]), true);
   assert.equal(api.esFormatoNuevo_([['', '', '', 'Ejercicios ', 'Obs', '', 'Ser', 'Rep', 'Kilogramos']]), true);
   assert.equal(api.esFormatoNuevo_([['', '', '', 'Ejercicios ', 'Obs', '', 'SER', '', 'KG', '', '', 'RIR']]), true);   // REP sin título (planilla de Leandro Doldan)
+  assert.equal(api.esFormatoNuevo_([['', '', '', 'EJERCICIOS', 'OBS', '', 'SER', 'REP', '', 'KG']]), true);          // KG corrido a la columna J
+  assert.equal(api.esFormatoNuevo_([['', '', '', 'EJERCICIOS', 'OBS', '', 'SER', 'REP']]), true);                    // sin título de KG
+  assert.equal(api.esFormatoNuevo_([['', '', '', 'EJERCICIOS ', 'OBS ', 'SER ', 'REP ', 'KG ']]), false);            // columnas corridas: no se adivinan
   assert.equal(api.esFormatoNuevo_([ENCABEZADO_VIEJO]), false);
 });
 
