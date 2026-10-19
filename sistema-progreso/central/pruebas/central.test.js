@@ -59,7 +59,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) ? celdasCache.get(k) : null), put: (k, v) => celdasCache.set(k, v) }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, leerCatalogo_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, leerCatalogo_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -452,4 +452,57 @@ test('la categoría se calcula con el catálogo actual también para las semanas
 test('la respuesta del dashboard no incluye el historial interno', () => {
   const { get } = entorno({ alumnos, planillas });
   assert.ok(!('historia' in get({ accion: 'progreso', clave: CLAVE_A })));
+});
+
+// ---- tildes de día (casilla en la columna C, a la izquierda de cada "DÍA n") ----
+const conTilde = (casilla, titulo) => ['', '', casilla, titulo];
+
+test('tildes de día: lee la casilla de cada DÍA n; sin casilla no cuenta', () => {
+  const { api } = entorno();
+  const r = api.leerDiasTildados_([ENCABEZADO_NUEVO, conTilde(true, 'DÍA 1 '), fila('Sentadilla C/B', 3, 5, 100), conTilde(false, 'DÍA 2'), ['', '', '', 'DÍA 3'], conTilde('', 'DÍA 4')]);
+  assert.deepEqual(JSON.parse(JSON.stringify(r)), [{ dia: 1, hecho: true }, { dia: 2, hecho: false }]);
+});
+
+test('tildes de día: una semana sin ninguna casilla (anterior a los tildes) no devuelve nada', () => {
+  const { api } = entorno();
+  assert.deepEqual(Array.from(api.leerDiasTildados_([ENCABEZADO_NUEVO, ['', '', '', 'DÍA 1 '], ['', '', '', 'DÍA 2']])), []);
+});
+
+test('tildes de día: la letra A/B/C de un ejercicio en la columna C no se toma por un tilde', () => {
+  const { api } = entorno();
+  const r = api.leerDiasTildados_([ENCABEZADO_NUEVO, conTilde(true, 'DÍA 1'), ['', '', 'A', 'Pin Squat', '', '', 2, 5, 90]]);
+  assert.deepEqual(JSON.parse(JSON.stringify(r)), [{ dia: 1, hecho: true }]);
+});
+
+test('la planilla completa trae los tildes por semana, ordenados, y no rompe a las semanas sin casillas', () => {
+  const { api } = entorno();
+  const conCasillas = (n, hechos) => hoja(`Semana ${n}`, [ENCABEZADO_NUEVO, conTilde(hechos[0], 'DÍA 1'), fila('Sentadilla C/B', 3, 5, 100), conTilde(hechos[1], 'DÍA 2')]);
+  const ss = planilla([conCasillas(102, [true, false]), semana(101, [fila('Sentadilla C/B', 3, 5, 95)]), conCasillas(103, [true, true])]);
+  const r = api.leerPlanilla_(ss);
+  assert.deepEqual(JSON.parse(JSON.stringify(r.dias)), [
+    { semana: 102, dia: 1, hecho: true }, { semana: 102, dia: 2, hecho: false },
+    { semana: 103, dia: 1, hecho: true }, { semana: 103, dia: 2, hecho: true }]);
+});
+
+// ---- los tildes y la memoria de semanas viejas ----
+const semanaConCasillas = (n, hechos) => hoja(`Semana ${n}`, [ENCABEZADO_NUEVO, conTilde(hechos[0], 'DÍA 1'), fila('Sentadilla C/B', 3, 5, 100), conTilde(hechos[1], 'DÍA 2')]);
+const siete = () => planilla([100, 101, 102, 103, 104, 105, 106].map(n => semanaConCasillas(n, [n % 2 === 0, true])));
+
+test('las semanas viejas guardadas en la memoria conservan sus tildes y las recientes se leen de nuevo', () => {
+  const { api } = entorno();
+  const completa = JSON.parse(JSON.stringify(api.leerPlanilla_(siete(), [])));
+  assert.equal(completa.dias.length, 14);
+  // segunda lectura con la memoria de la primera: las semanas hasta la 103 no se leen y sus tildes igual están
+  const segunda = JSON.parse(JSON.stringify(api.leerPlanilla_(siete(), [], JSON.parse(JSON.stringify(completa.historia)))));
+  assert.deepEqual(segunda.dias, completa.dias);
+  assert.equal(completa.historia.hasta, 103);
+  assert.ok(completa.historia.dias.every(d => d.semana <= 103));
+});
+
+test('una memoria guardada antes de los tildes (sin "dias") no se usa: se relee todo y no se pierden tildes', () => {
+  const { api } = entorno();
+  const completa = JSON.parse(JSON.stringify(api.leerPlanilla_(siete(), [])));
+  const viejaSinDias = { hasta: completa.historia.hasta, series: completa.historia.series };
+  const r = JSON.parse(JSON.stringify(api.leerPlanilla_(siete(), [], viejaSinDias)));
+  assert.deepEqual(r.dias, completa.dias);
 });

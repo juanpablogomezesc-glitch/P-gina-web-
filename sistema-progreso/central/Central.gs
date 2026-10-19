@@ -31,7 +31,7 @@ const LARGO_CLAVE = 24;
 
 // ---------- Lectura de las pestañas (funciones puras, probadas aparte) ----------
 
-const COL_ = { ejercicio: 3, series: 6, reps: 7, kg0: 8, kgN: 10 };
+const COL_ = { tilde: 2, ejercicio: 3, series: 6, reps: 7, kg0: 8, kgN: 10 };
 
 const limpiarNombre_ = t => String(t).replace(/\s+/g, ' ').trim();
 const numero_ = v => (typeof v === 'number' && isFinite(v) ? v : null);
@@ -99,6 +99,24 @@ function leerSemana_(filas) {
   return series;
 }
 
+/**
+ * Los tildes de día de una pestaña "Semana N": una casilla en la columna C, a la izquierda de cada título "DÍA n".
+ * → [{ dia, hecho }]. Solo cuentan los "DÍA n" que tienen casilla: en las semanas anteriores a los tildes nunca se pudo
+ * marcar nada, así que no deben figurar como "faltó".
+ */
+function leerDiasTildados_(filas) {
+  const porDia = new Map();
+  filas.forEach((fila, i) => {
+    if (i === 0) return;
+    const m = /^D[ÍI]A\s*(\d+)/i.exec(String(fila[COL_.ejercicio] == null ? '' : fila[COL_.ejercicio]).trim());
+    const casilla = fila[COL_.tilde];
+    if (!m || (casilla !== true && casilla !== false)) return;
+    const dia = +m[1];
+    porDia.set(dia, porDia.get(dia) === true || casilla === true);
+  });
+  return [...porDia.entries()].sort((a, b) => a[0] - b[0]).map(([dia, hecho]) => ({ dia, hecho }));
+}
+
 /** Fechas tildadas ('AAAA-MM-DD') de la pestaña del calendario: cada casillero está justo debajo de su fecha. */
 function fechasMarcadas_(valores) {
   const fechas = [];
@@ -141,8 +159,8 @@ function objetivosMensuales_(valores) {
 const esHojaAsistencia_ = nombre => /^\s*(Control Mensual|Asistencia\s+\d{4})\s*$/i.test(String(nombre));
 
 /**
- * Devuelve { series, categorias, asistencia, objetivos, semanaActual, historia } de una planilla abierta. `catalogo` es la lista de armarCatalogo_.
- * `previo` (opcional) es la `historia` de una lectura anterior: { hasta, series }. Las semanas hasta ese número no se vuelven a leer de la planilla.
+ * Devuelve { series, categorias, asistencia, objetivos, dias, semanaActual, historia } de una planilla abierta. dias = tildes de día por semana. `catalogo` es la lista de armarCatalogo_.
+ * `previo` (opcional) es la `historia` de una lectura anterior: { hasta, series, dias }. Las semanas hasta ese número no se vuelven a leer de la planilla.
  */
 function leerPlanilla_(ss, catalogo, previo) {
   const hojas = ss.getSheets();
@@ -160,13 +178,15 @@ function leerPlanilla_(ss, catalogo, previo) {
   const porClave = new Map();
   (catalogo || []).forEach(x => { if (!porClave.has(claveNombre_(x.nombre))) porClave.set(claveNombre_(x.nombre), x); });
   const hasta = semanas.length ? Math.max(0, semanas[0].n - SEMANAS_RECIENTES) : 0; // hasta acá las semanas ya están cerradas
-  const usable = previo && Number.isInteger(previo.hasta) && previo.hasta > 0 && previo.hasta <= hasta && Array.isArray(previo.series);
+  const usable = previo && Number.isInteger(previo.hasta) && previo.hasta > 0 && previo.hasta <= hasta && Array.isArray(previo.series) && Array.isArray(previo.dias); // una historia guardada antes de los tildes no sirve: se relee
   const corte = usable ? previo.hasta : 0; // lo que ya está en `previo` no se lee de nuevo
   const series = usable ? previo.series.slice() : [], vistas = new Set();
+  const dias = usable ? previo.dias.slice() : [];
   for (const s of semanas.slice(0, SEMANAS_MAXIMO)) {
     if (s.n <= corte) break; // las semanas más viejas ya vienen guardadas
     const filas = s.hoja.getRange(1, 1, Math.min(s.hoja.getMaxRows(), 80), 12).getValues();
     if (!esFormatoNuevo_(filas)) break; // desde acá para atrás son pestañas con el formato viejo
+    leerDiasTildados_(filas).forEach(x => dias.push({ semana: s.n, dia: x.dia, hecho: x.hecho }));
     leerSemana_(filas).forEach(x => {
       const k = claveNombre_(x.ejercicio);
       const enCatalogo = porClave.get(k);
@@ -180,6 +200,7 @@ function leerPlanilla_(ss, catalogo, previo) {
   const categorias = {};
   series.forEach(x => { const c = porClave.get(claveNombre_(x.ejercicio)); if (c) categorias[x.ejercicio] = c.categoria; });
   series.sort((a, b) => a.semana - b.semana);
+  dias.sort((a, b) => a.semana - b.semana || a.dia - b.dia);
 
   let asistencia = [], objetivos = {};
   asistencias.forEach(h => {
@@ -187,8 +208,8 @@ function leerPlanilla_(ss, catalogo, previo) {
     asistencia = asistencia.concat(fechasMarcadas_(valores));
     Object.assign(objetivos, objetivosMensuales_(valores));
   });
-  const historia = { hasta, series: series.filter(x => x.semana <= hasta) };
-  return { series, categorias, asistencia: asistencia.sort(), objetivos, semanaActual, historia };
+  const historia = { hasta, series: series.filter(x => x.semana <= hasta), dias: dias.filter(x => x.semana <= hasta) };
+  return { series, categorias, asistencia: asistencia.sort(), objetivos, dias, semanaActual, historia };
 }
 
 /** Número de pestaña (gid) para abrir directo en ella; si la pestaña está oculta, Google no la muestra, así que no se usa. */

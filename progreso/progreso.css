@@ -93,3 +93,18 @@
 .selectores select:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { .selectores select:hover { background-color: rgba(255, 107, 26, 0.24); } }
 @media (prefers-reduced-motion: reduce) { .selectores select:active { transform: none; } }
+
+/* Días de la rutina: una fila por semana, un casillero por día */
+.pr-semana-dias { margin-top: 12px; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 14px 16px; }
+.progreso .pr-semana-dias .dias-mensaje { color: var(--texto); font-weight: 600; line-height: 1.4; margin-bottom: 12px; max-width: none; }
+.pr-semana-dias .semana-fila { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-top: 1px solid var(--borde); }
+.pr-semana-dias .semana-fila:first-of-type { border-top: 0; }
+.pr-semana-dias .semana-nombre { flex: 0 0 5.2rem; color: var(--suave); font-size: .82rem; font-variant-numeric: tabular-nums; }
+.pr-semana-dias .semana-dias { display: flex; flex-wrap: wrap; gap: 6px; }
+.pr-semana-dias .casillero { min-width: 44px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--borde); text-align: center; font: 600 .8rem var(--fuente-texto); font-variant-numeric: tabular-nums; color: var(--suave); }
+.pr-semana-dias .casillero.hecho { background: var(--acento); border-color: var(--acento); color: #0d0d0d; }
+.pr-semana-dias .casillero.falto { border-style: dashed; color: var(--suave); }
+.pr-semana-dias .casillero.pendiente { color: var(--texto); }
+.pr-semana-dias .leyenda { margin-top: 10px; color: var(--suave); font-size: .78rem; }
+.progreso .pr-records { margin-top: 12px; padding: 14px 16px; background: var(--acento-suave); border: 1px solid rgba(255, 107, 26, .35); border-left: 4px solid var(--acento); border-radius: 10px; }
+.progreso .pr-records .mensaje-texto { margin-bottom: 8px; }
