@@ -66,10 +66,15 @@ function armarCatalogo_(valores) {
   return lista;
 }
 
-/** Las pestañas viejas tienen otro orden de columnas: solo se leen las del formato actual. */
+/**
+ * Las pestañas viejas tienen otro orden de columnas: solo se leen las del formato actual.
+ * Formato actual = "Ejercicio" en D y "Ser" en G. Los títulos de REP y KG pueden faltar o estar vacíos (hay planillas así:
+ * los datos igual están en su lugar). Formato viejo = tiene "Kilogramos" en la columna N.
+ */
 function esFormatoNuevo_(filas) {
   const f = filas[0] || [];
-  return /ejercicio/i.test(String(f[3])) && /^\s*ser/i.test(String(f[6])) && /^\s*rep/i.test(String(f[7])) && /^\s*(kg|kilo)/i.test(String(f[8]));
+  const viejo = /^\s*kilo/i.test(String(f[13] == null ? '' : f[13]));
+  return /ejercicio/i.test(String(f[3])) && /^\s*ser/i.test(String(f[6])) && !viejo;
 }
 
 /** "5" → 5 · "5   C/L" → 5 (por lado) · '30"' / "1`" (tiempo) → null. */
@@ -185,7 +190,7 @@ function leerPlanilla_(ss, catalogo, previo) {
   const dias = usable ? previo.dias.slice() : [];
   for (const s of semanas.slice(0, SEMANAS_MAXIMO)) {
     if (s.n <= corte) break; // las semanas más viejas ya vienen guardadas
-    const filas = s.hoja.getRange(1, 1, Math.min(s.hoja.getMaxRows(), 80), 12).getValues();
+    const filas = s.hoja.getRange(1, 1, Math.min(s.hoja.getMaxRows(), 80), 14).getValues();
     if (!esFormatoNuevo_(filas)) break; // desde acá para atrás son pestañas con el formato viejo
     const tildes = leerDiasTildados_(filas);
     tildes.forEach(x => dias.push({ semana: s.n, dia: x.dia, hecho: x.hecho }));
