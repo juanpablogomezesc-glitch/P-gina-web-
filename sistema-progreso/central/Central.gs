@@ -140,11 +140,29 @@ function objetivosMensuales_(valores) {
 /** Las pestañas con el calendario de tildes: "Control Mensual" (la que usan los alumnos) o "Asistencia AAAA". No cuenta "Control Mensual (anterior)". */
 const esHojaAsistencia_ = nombre => /^\s*(Control Mensual|Asistencia\s+\d{4})\s*$/i.test(String(nombre));
 
+/** Lunes de la semana de una fecha 'AAAA-MM-DD' (las semanas van de lunes a domingo). */
+function lunesDe_(iso) {
+  const d = new Date(iso + 'T00:00:00Z');
+  return new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
+}
+
+/** Fecha de hoy en Argentina, 'AAAA-MM-DD' (el reloj del servidor puede estar en otra zona horaria). */
+const hoyArgentina_ = () => Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
+
+/** Cuántos días tildó la persona en el calendario durante la semana (lunes a domingo) de `hoy`. */
+function diasTildadosEstaSemana_(fechas, hoy) {
+  const lunes = lunesDe_(hoy);
+  const domingo = new Date(new Date(lunes + 'T00:00:00Z').getTime() + 6 * 86400000).toISOString().slice(0, 10);
+  return new Set(fechas.filter(f => f >= lunes && f <= domingo)).size;
+}
+
 /**
  * Devuelve { series, categorias, asistencia, objetivos, semanaActual, historia } de una planilla abierta. `catalogo` es la lista de armarCatalogo_.
  * `previo` (opcional) es la `historia` de una lectura anterior: { hasta, series }. Las semanas hasta ese número no se vuelven a leer de la planilla.
+ * `hoy` (opcional, 'AAAA-MM-DD'): en la semana más nueva (la que está en curso) solo cuentan los días que la persona ya tildó en el calendario
+ * esta semana: si tildó 2, entran el DÍA 1 y el DÍA 2; los pesos cargados para los días que todavía no hizo no cuentan (ni como récord).
  */
-function leerPlanilla_(ss, catalogo, previo) {
+function leerPlanilla_(ss, catalogo, previo, hoy) {
   const hojas = ss.getSheets();
   const semanas = [], asistencias = [];
   hojas.forEach(h => {
@@ -155,6 +173,15 @@ function leerPlanilla_(ss, catalogo, previo) {
   });
   semanas.sort((a, b) => b.n - a.n); // de la más nueva a la más vieja
   const semanaActual = semanas.length ? { n: semanas[0].n, gid: gidVisible_(semanas[0].hoja) } : null;
+
+  let asistencia = [], objetivos = {};
+  asistencias.forEach(h => {
+    const valores = h.getRange(1, 1, h.getMaxRows(), 9).getValues();
+    asistencia = asistencia.concat(fechasMarcadas_(valores));
+    Object.assign(objetivos, objetivosMensuales_(valores));
+  });
+  // Días ya hechos de la semana en curso. Si la persona no usa el calendario (no tildó nunca), no se puede saber y cuentan todos los días.
+  const diasHechos = hoy && asistencia.length ? diasTildadosEstaSemana_(asistencia, hoy) : Infinity;
 
   // Todos los ejercicios con peso. Si está en el catálogo se usa su nombre y su categoría; si no, queda tal cual lo escribiste en la planilla.
   const porClave = new Map();
@@ -168,6 +195,7 @@ function leerPlanilla_(ss, catalogo, previo) {
     const filas = s.hoja.getRange(1, 1, Math.min(s.hoja.getMaxRows(), 80), 12).getValues();
     if (!esFormatoNuevo_(filas)) break; // desde acá para atrás son pestañas con el formato viejo
     leerSemana_(filas).forEach(x => {
+      if (semanaActual && s.n === semanaActual.n && x.dia > diasHechos) return; // día de la semana en curso que todavía no hizo
       const k = claveNombre_(x.ejercicio);
       const enCatalogo = porClave.get(k);
       const nombre = enCatalogo ? enCatalogo.nombre : x.ejercicio;
@@ -181,12 +209,6 @@ function leerPlanilla_(ss, catalogo, previo) {
   series.forEach(x => { const c = porClave.get(claveNombre_(x.ejercicio)); if (c) categorias[x.ejercicio] = c.categoria; });
   series.sort((a, b) => a.semana - b.semana);
 
-  let asistencia = [], objetivos = {};
-  asistencias.forEach(h => {
-    const valores = h.getRange(1, 1, h.getMaxRows(), 9).getValues();
-    asistencia = asistencia.concat(fechasMarcadas_(valores));
-    Object.assign(objetivos, objetivosMensuales_(valores));
-  });
   const historia = { hasta, series: series.filter(x => x.semana <= hasta) };
   return { series, categorias, asistencia: asistencia.sort(), objetivos, semanaActual, historia };
 }
@@ -333,7 +355,7 @@ function doGet(e) {
   let previo = null;
   try { previo = JSON.parse(memoria.get(llaveHistoria)); } catch (err) { previo = null; }
   try {
-    datos = leerPlanilla_(SpreadsheetApp.openById(alumno.planilla), leerCatalogo_(), previo);
+    datos = leerPlanilla_(SpreadsheetApp.openById(alumno.planilla), leerCatalogo_(), previo, hoyArgentina_());
   } catch (err) {
     Logger.log(`No se pudo leer la planilla de ${alumno.nombre}: ${err}`);
     return respuesta_({ ok: false, error: 'No pude leer tu planilla. Avisale a tu entrenador.' });
@@ -354,7 +376,7 @@ function probarLectura() {
   const LINK_O_ID = ''; // <- pegá acá el link de la planilla a probar
   const id = idDePlanilla_(LINK_O_ID);
   if (!id) throw new Error('Pegá el link de una planilla en LINK_O_ID, dentro de probarLectura.');
-  const d = leerPlanilla_(SpreadsheetApp.openById(id), leerCatalogo_());
+  const d = leerPlanilla_(SpreadsheetApp.openById(id), leerCatalogo_(), null, hoyArgentina_());
   const porEj = {};
   d.series.forEach(s => { porEj[s.ejercicio] = (porEj[s.ejercicio] || 0) + 1; });
   Logger.log(`Series por ejercicio: ${JSON.stringify(porEj)}`);
@@ -377,7 +399,7 @@ function medirTiempos(entrada) {
   const ss = paso('Abrir la planilla', () => SpreadsheetApp.openById(id));
   const hojas = paso('Listar las pestañas', () => ss.getSheets());
   paso(`Leer el nombre de ${hojas.length} pestañas`, () => hojas.map(h => h.getName()));
-  const datos = paso('Lectura completa (lo que hace el dashboard)', () => leerPlanilla_(ss, leerCatalogo_()));
+  const datos = paso('Lectura completa (lo que hace el dashboard)', () => leerPlanilla_(ss, leerCatalogo_(), null, hoyArgentina_()));
   lineas.push(`Series leídas: ${datos.series.length} · días tildados: ${datos.asistencia.length}`);
   lineas.push(`TOTAL: ${Date.now() - inicio} ms`);
   Logger.log(lineas.join('\n'));
