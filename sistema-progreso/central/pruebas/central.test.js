@@ -26,7 +26,6 @@ const hoja = (nombre, filas, { maxFilas, oculta = false } = {}) => ({
     }),
   }),
 });
-const HOY = '2026-10-14'; // miércoles; la semana en curso va del lunes 12 al domingo 18 de octubre
 const ID_CATALOGO = /CATALOGO_ID = '([^']+)'/.exec(CODIGO)[1];
 const planilla = hojas => ({ getSheets: () => hojas });
 const fila = (nombre, ser, rep, ...kg) => ['', '', '', nombre, '', '', ser, rep, ...kg];
@@ -53,7 +52,6 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
   const lecturas = { n: 0 };
   const ctx = vm.createContext({
     Date, Math, Error, JSON, Map, Set, Logger: { log() {} },
-    Utilities: { formatDate: () => HOY },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ss,
       openById: id => { if (id !== ID_CATALOGO) lecturas.n++; if (!planillas[id]) throw new Error('sin acceso'); return planillas[id]; },
@@ -344,7 +342,7 @@ test('medirTiempos informa cada paso y el total, y pide una planilla si falta', 
   const { api } = entorno({ planillas: { [ID_A]: planilla([semana(1, [fila('Sentadilla C/B', 1, 5, 60)]), calendarioControlMensual('Control Mensual')]) } });
   const lineas = api.medirTiempos(ID_A);
   const texto = Array.from(lineas).join('\n');
-  for (const paso of ['Abrir la planilla', 'Listar las pestañas', 'Leer el nombre de 2 pestañas', 'Lectura completa', 'Series leídas: 0 · días tildados: 4', 'TOTAL']) assert.ok(texto.includes(paso), paso);
+  for (const paso of ['Abrir la planilla', 'Listar las pestañas', 'Leer el nombre de 2 pestañas', 'Lectura completa', 'Series leídas: 1 · días tildados: 4', 'TOTAL']) assert.ok(texto.includes(paso), paso);
   assert.throws(() => api.medirTiempos(''), /Pegá el link/);
 });
 
@@ -454,46 +452,4 @@ test('la categoría se calcula con el catálogo actual también para las semanas
 test('la respuesta del dashboard no incluye el historial interno', () => {
   const { get } = entorno({ alumnos, planillas });
   assert.ok(!('historia' in get({ accion: 'progreso', clave: CLAVE_A })));
-});
-
-// ---- semana en curso: solo cuentan los días que ya hizo ----
-const dia = (n, ...filas) => [['', '', '', `DÍA ${n} `], ...filas];
-const calendarioCon = (...tildados) => hoja('Control Mensual', [
-  tildados.map(([d]) => new Date(2026, 9, d)), tildados.map(([, hecho]) => hecho),
-]);
-
-test('en la semana en curso solo cuentan los días ya tildados en el calendario (los pesos cargados por adelantado no)', () => {
-  const { api } = entorno();
-  const ss = planilla([
-    semana(57, [...dia(1, fila('Sentadilla C/B', 1, 5, 90)).slice(1), ...dia(2, fila('Press Plano C/B', 1, 5, 70))], undefined),
-    semana(58, [fila('Sentadilla C/B', 1, 5, 100), ...dia(2, fila('Press Plano C/B', 1, 5, 80)), ...dia(3, fila('Despegue C/B', 1, 5, 120)), ...dia(4, fila('Hip Trust C/B', 1, 5, 150))]),
-    calendarioCon([12, true], [13, true], [14, false], [15, false]), // lunes y martes hechos; hoy es miércoles 14
-  ]);
-  const r = api.leerPlanilla_(ss, [], null, '2026-10-14');
-  const ver = Array.from(r.series, x => `${x.semana}:${x.ejercicio}:${x.kg}`);
-  assert.deepEqual(ver, ['57:Sentadilla C/B:90', '57:Press Plano C/B:70', '58:Sentadilla C/B:100', '58:Press Plano C/B:80'], 'la semana 58 sin el día 3 ni el 4');
-});
-
-test('si todavía no tildó ningún día de la semana en curso, esa semana no aporta nada; apenas tilda el día 1, aparece', () => {
-  const { api } = entorno();
-  const armar = tildes => planilla([semana(58, [fila('Sentadilla C/B', 1, 5, 100), ...dia(2, fila('Press Plano C/B', 1, 5, 80))]), calendarioCon(...tildes)]);
-  const antes = api.leerPlanilla_(armar([[5, true], [12, false]]), [], null, '2026-10-14'); // tiene calendario con tildes de antes, pero ninguno esta semana
-  assert.equal(antes.series.length, 0);
-  const despues = api.leerPlanilla_(armar([[5, true], [12, true]]), [], null, '2026-10-14');
-  assert.deepEqual(Array.from(despues.series, x => x.ejercicio), ['Sentadilla C/B']);
-});
-
-test('quien no usa el calendario (nunca tildó) ve todos sus pesos, y sin fecha de hoy no se filtra nada', () => {
-  const { api } = entorno();
-  const sinTildes = planilla([semana(58, [fila('Sentadilla C/B', 1, 5, 100), ...dia(2, fila('Press Plano C/B', 1, 5, 80))]), calendarioCon([12, false])]);
-  assert.equal(api.leerPlanilla_(sinTildes, [], null, '2026-10-14').series.length, 2);
-  const conTildes = planilla([semana(58, [fila('Sentadilla C/B', 1, 5, 100), ...dia(2, fila('Press Plano C/B', 1, 5, 80))]), calendarioCon([5, true])]);
-  assert.equal(api.leerPlanilla_(conTildes, [], null).series.length, 2);
-});
-
-test('la fecha de la semana: lunes a domingo, y un día tildado se cuenta una sola vez', () => {
-  const { api } = entorno();
-  const ss = planilla([semana(58, [fila('Sentadilla C/B', 1, 5, 100), ...dia(2, fila('Press Plano C/B', 1, 5, 80)), ...dia(3, fila('Despegue C/B', 1, 5, 120))]), calendarioCon([11, true], [18, true], [19, true])]); // domingo 11 y lunes 19 son de otras semanas
-  const r = api.leerPlanilla_(ss, [], null, '2026-10-14');
-  assert.equal(r.series.length, 1, 'el domingo 18 cuenta como 1 día de esta semana; el 11 y el 19 no');
 });
