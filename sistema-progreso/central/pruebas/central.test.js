@@ -506,3 +506,29 @@ test('una memoria guardada antes de los tildes (sin "dias") no se usa: se relee 
   const r = JSON.parse(JSON.stringify(api.leerPlanilla_(siete(), [], viejaSinDias)));
   assert.deepEqual(r.dias, completa.dias);
 });
+
+// ---- los pesos de un día solo cuentan cuando el día está tildado ----
+test('los pesos de un día sin tildar no cuentan (no generan récords); al tildarlo aparecen', () => {
+  const { api } = entorno();
+  const semana58 = (tilde1, tilde2) => hoja('Semana 58', [ENCABEZADO_NUEVO,
+    conTilde(tilde1, 'DÍA 1'), fila('Sentadilla C/B', 1, 5, 100), conTilde(tilde2, 'DÍA 2'), fila('Press Plano C/B', 1, 5, 80), conTilde(false, 'DÍA 3'), fila('Despegue C/B', 1, 5, 120)]);
+  const ver = ss => Array.from(api.leerPlanilla_(ss, []).series, x => `${x.ejercicio}:${x.kg}`);
+  assert.deepEqual(ver(planilla([semana58(true, true)])), ['Sentadilla C/B:100', 'Press Plano C/B:80'], 'día 3 sin tildar: no entra');
+  assert.deepEqual(ver(planilla([semana58(true, false)])), ['Sentadilla C/B:100'], 'día 2 todavía sin tildar');
+  assert.deepEqual(ver(planilla([semana58(false, false)])), [], 'ningún día tildado: la semana en curso no aporta nada');
+});
+
+test('los días sin casilla (semanas viejas) cuentan siempre, y también un día ya tildado en una semana anterior', () => {
+  const { api } = entorno();
+  const ss = planilla([
+    semana(56, [fila('Sentadilla C/B', 1, 5, 90)]),                                   // sin casillas
+    hoja('Semana 57', [ENCABEZADO_NUEVO, conTilde(true, 'DÍA 1'), fila('Sentadilla C/B', 1, 5, 95), conTilde(false, 'DÍA 2'), fila('Press Plano C/B', 1, 5, 70)]),
+  ]);
+  assert.deepEqual(Array.from(api.leerPlanilla_(ss, []).series, x => `${x.semana}:${x.ejercicio}:${x.kg}`), ['56:Sentadilla C/B:90', '57:Sentadilla C/B:95']);
+});
+
+test('la respuesta del dashboard no trae los pesos de los días sin tildar', () => {
+  const planillaAlumna = planilla([hoja('Semana 58', [ENCABEZADO_NUEVO, conTilde(true, 'DÍA 1'), fila('Sentadilla C/B', 1, 5, 100), conTilde(false, 'DÍA 2'), fila('Press Plano C/B', 1, 5, 80)])]);
+  const { get } = entorno({ alumnos, planillas: { ...planillas, [ID_A]: planillaAlumna } });
+  assert.deepEqual(get({ accion: 'progreso', clave: CLAVE_A }).series.map(s => s.ejercicio), ['Sentadilla C/B']);
+});

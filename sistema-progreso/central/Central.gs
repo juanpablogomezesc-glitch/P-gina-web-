@@ -161,6 +161,7 @@ const esHojaAsistencia_ = nombre => /^\s*(Control Mensual|Asistencia\s+\d{4})\s*
 /**
  * Devuelve { series, categorias, asistencia, objetivos, dias, semanaActual, historia } de una planilla abierta. dias = tildes de día por semana. `catalogo` es la lista de armarCatalogo_.
  * `previo` (opcional) es la `historia` de una lectura anterior: { hasta, series, dias }. Las semanas hasta ese número no se vuelven a leer de la planilla.
+ * Los pesos de un "DÍA n" solo cuentan cuando la casilla de ese día está tildada; los días sin casilla (semanas viejas) cuentan siempre.
  */
 function leerPlanilla_(ss, catalogo, previo) {
   const hojas = ss.getSheets();
@@ -186,8 +187,11 @@ function leerPlanilla_(ss, catalogo, previo) {
     if (s.n <= corte) break; // las semanas más viejas ya vienen guardadas
     const filas = s.hoja.getRange(1, 1, Math.min(s.hoja.getMaxRows(), 80), 12).getValues();
     if (!esFormatoNuevo_(filas)) break; // desde acá para atrás son pestañas con el formato viejo
-    leerDiasTildados_(filas).forEach(x => dias.push({ semana: s.n, dia: x.dia, hecho: x.hecho }));
+    const tildes = leerDiasTildados_(filas);
+    tildes.forEach(x => dias.push({ semana: s.n, dia: x.dia, hecho: x.hecho }));
+    const hecho = new Map(tildes.map(x => [x.dia, x.hecho]));
     leerSemana_(filas).forEach(x => {
+      if (hecho.get(x.dia) === false) return; // el día tiene casilla y todavía no está tildado: lo que se cargó ahí no cuenta (ni como récord)
       const k = claveNombre_(x.ejercicio);
       const enCatalogo = porClave.get(k);
       const nombre = enCatalogo ? enCatalogo.nombre : x.ejercicio;
