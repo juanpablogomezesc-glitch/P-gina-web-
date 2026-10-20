@@ -27,7 +27,10 @@
         });
       });
     }
-    return { series, asistencia, categorias };
+    // Días de la rutina de las últimas 6 semanas (el ejemplo muestra el patrón "arranca fuerte, cierra flojo")
+    const dias = [];
+    for (let w = 0; w < 6; w++) [1, 2, 3, 4].forEach(d => dias.push({ semana: 97 + w, dia: d, hecho: d <= 2 || (w + d) % 3 === 0 }));
+    return { series, asistencia, categorias, dias };
   }
   // Dirección del script central (se completa al publicarlo). Con ?c=CLAVE se muestran los datos reales de esa persona.
   const API_URL = 'https://script.google.com/macros/s/AKfycbxJOD38AnzlNTIYBdZjqZF20HhrCT2H53XL_7IuNtCS2oyCZfjfr1VK7PQX-1YgsEyfDQ/exec';
@@ -40,7 +43,7 @@
     } catch (e) {}
     return c || null;
   })();
-  let datos = clave ? { series: [], asistencia: [] } : demo();
+  let datos = clave ? { series: [], asistencia: [], dias: [] } : demo();
   let objetivos = {};
   let actualizadoIso = '';
   let semanasFiltro = 0;
@@ -176,6 +179,45 @@
     t.appendChild(svg); cont.appendChild(t);
   }
 
+  /** Tira de las últimas semanas: un casillero por día de la rutina (✓ hecho, – faltó, ○ pendiente de la semana en curso) y el patrón. */
+  function dibujarDiasSemana() {
+    const titulo = document.getElementById('h-dias-semana'), cont = document.getElementById('dias-semana');
+    const a = P.analizarDias(datos.dias || []);
+    cont.innerHTML = '';
+    titulo.hidden = cont.hidden = !a;
+    if (!a) return;
+    if (a.mensaje) { const p = document.createElement('p'); p.className = 'dias-mensaje'; p.textContent = a.mensaje; cont.appendChild(p); }
+    a.tira.slice().reverse().forEach(s => {
+      const fila = document.createElement('div'); fila.className = 'semana-fila';
+      const cab = document.createElement('div'); cab.className = 'semana-cab';
+      const nombre = document.createElement('span'); nombre.className = 'semana-nombre';
+      const num = document.createElement('b'); num.textContent = s.semana;
+      nombre.append('Semana ', num);
+      if (s.enCurso) { const chip = document.createElement('em'); chip.textContent = 'en curso'; nombre.appendChild(chip); }
+      const hechos = s.dias.filter(d => d.hecho).length;
+      const cuenta = document.createElement('span'); cuenta.className = 'semana-cuenta'; cuenta.textContent = hechos + ' de ' + s.dias.length;
+      cab.append(nombre, cuenta);
+      const dias = document.createElement('div'); dias.className = 'semana-dias';
+      dias.style.setProperty('--n', s.dias.length);
+      const partes = [];
+      s.dias.forEach(d => {
+        const estado = d.hecho ? 'hecho' : (s.enCurso ? 'pendiente' : 'falto');
+        const c = document.createElement('span'); c.className = 'casillero ' + estado;
+        const l = document.createElement('span'); l.className = 'c-dia'; l.textContent = 'Día ' + d.dia;
+        const m = document.createElement('span'); m.className = 'c-marca'; m.setAttribute('aria-hidden', 'true'); m.textContent = d.hecho ? '✓' : (s.enCurso ? '' : '–');
+        c.append(l, m);
+        dias.appendChild(c);
+        partes.push(`día ${d.dia} ${d.hecho ? 'hecho' : (s.enCurso ? 'pendiente' : 'no hecho')}`);
+      });
+      fila.setAttribute('role', 'group'); fila.setAttribute('aria-label', 'Semana ' + s.semana + ': ' + partes.join(', '));
+      fila.append(cab, dias); cont.appendChild(fila);
+    });
+    const ley = document.createElement('p'); ley.className = 'leyenda';
+    ley.textContent = a.mensaje ? `Lo marcás vos en tu planilla. El patrón se calcula con tus últimas ${a.semanasAnalizadas} semanas cerradas.`
+      : `Lo marcás vos en tu planilla. Con ${P.MIN_SEMANAS_PATRON} semanas completas empezamos a mostrarte tu patrón.`;
+    cont.appendChild(ley);
+  }
+
   /** El mensaje de arriba y, si los hay, los récords nuevos de las últimas semanas. */
   function pintarMensaje(rachaInfo, hoy) {
     const caja = document.getElementById('pr-mensaje');
@@ -186,24 +228,41 @@
     const texto = P.mensajeMotivacional({
       racha: rachaInfo.racha, diasSemanaActual: rachaInfo.diasSemanaActual, faltan: rachaInfo.faltan,
       objetivoCumplido: hechosMes > 0 && hechosMes >= (objetivos[mesHoy] || OBJETIVO_MENSUAL),
-      record: recientes[0] || null, hayDatos,
+      record: null, hayDatos,   // los récords van en su propio aviso, debajo de los gráficos
     });
     caja.innerHTML = '';
     const p = document.createElement('p'); p.className = 'mensaje-texto'; p.textContent = texto; caja.appendChild(p);
-    if (recientes.length) {
-      const ul = document.createElement('ul'); ul.className = 'mensaje-records';
-      recientes.forEach(r => {
-        const li = document.createElement('li');
-        li.textContent = `★ ${r.ejercicio.replace(/ C\/B$/, '')}: ${fmtNum(r.kg)} kg × ${r.reps} (antes ${fmtNum(r.anterior)} kg)`;
-        ul.appendChild(li);
-      });
-      caja.appendChild(ul);
-    }
     caja.hidden = false;
+  }
+
+  /** Los récords de las últimas dos semanas, debajo de los gráficos de días entrenados: "★ Sentadilla: 125 kg × 1 (antes 122,5 kg)". */
+  function pintarRecords() {
+    const caja = document.getElementById('pr-records');
+    const recientes = P.recordsRecientes(datos.series);
+    caja.innerHTML = '';
+    caja.hidden = !recientes.length;
+    if (!recientes.length) return;
+    const titulo = document.createElement('p'); titulo.className = 'rec-titulo'; titulo.textContent = recientes.length === 1 ? 'Nuevo récord' : 'Nuevos récords'; caja.appendChild(titulo);
+    const ul = document.createElement('ul'); ul.className = 'rec-lista';
+    const el = (tag, clase, texto) => { const e = document.createElement(tag); e.className = clase; e.textContent = texto; return e; };
+    recientes.forEach(r => {
+      const li = document.createElement('li');
+      li.append(
+        el('span', 'rec-estrella', '★'),
+        el('span', 'rec-nombre', r.ejercicio.replace(/ C\/B$/, '')),
+        el('span', 'rec-valor', `${fmtNum(r.kg)} kg × ${r.reps}`),
+        el('span', 'rec-antes', `antes ${fmtNum(r.anterior)} kg`),
+        el('span', 'rec-sem', 'Sem ' + r.semana)
+      );
+      ul.appendChild(li);
+    });
+    caja.appendChild(ul);
   }
 
   function render() {
     dibujarDias();
+    pintarRecords();
+    dibujarDiasSemana();
     const desde = P.desdeUltimasSemanas(datos.series, semanasFiltro);
     const series = P.desdeSemana(datos.series, desde);
     const ultimaAsistencia = [...datos.asistencia].sort().pop();
@@ -293,7 +352,7 @@
   function guardar(limpio) { try { localStorage.setItem(llaveGuardado, JSON.stringify(limpio)); } catch (e) {} }
 
   function aplicar(limpio) {
-    datos = { series: limpio.series, asistencia: limpio.asistencia, categorias: limpio.categorias }; objetivos = limpio.objetivos;
+    datos = { series: limpio.series, asistencia: limpio.asistencia, categorias: limpio.categorias, dias: limpio.dias }; objetivos = limpio.objetivos;
     actualizadoIso = limpio.actualizado || new Date().toISOString();
     if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
     const btn = document.getElementById('btn-rutina');

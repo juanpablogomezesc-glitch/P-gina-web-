@@ -107,20 +107,24 @@
   // ---- Récords, cambio semanal, racha y mensajes ----
 
   /**
-   * ¿Hubo un récord de peso en la última semana con datos del ejercicio? Es récord si supera todo lo levantado antes.
+   * El último récord de peso del ejercicio: la semana más reciente en la que se levantó más que en todas las anteriores.
+   * No tiene que ser la última semana con datos: una semana nueva que copia los mismos kilos de la anterior no supera nada,
+   * y no por eso el récord de la semana pasada deja de ser reciente (de eso se ocupa recordsRecientes).
    * Con un solo dato no hay con qué comparar, así que no cuenta. Devuelve { kg, reps, semana, anterior } o null.
    */
   function nuevoRecord(series, ejercicio) {
-    const propias = series.filter(s => es(s, ejercicio) && s.kg > 0 && s.reps >= 1);
-    if (!propias.length) return null;
-    const ultima = Math.max(...propias.map(s => s.semana));
-    const antes = propias.filter(s => s.semana < ultima);
-    if (!antes.length) return null;
-    const previo = Math.max(...antes.map(s => s.kg));
-    const nuevos = propias.filter(s => s.semana === ultima && s.kg > previo);
-    if (!nuevos.length) return null;
-    const mejor = nuevos.reduce((a, b) => (b.kg > a.kg || (b.kg === a.kg && b.reps > a.reps) ? b : a));
-    return { kg: mejor.kg, reps: mejor.reps, semana: ultima, anterior: previo };
+    const mejorDeSemana = new Map();
+    series.filter(s => es(s, ejercicio) && s.kg > 0 && s.reps >= 1).forEach(s => {
+      const m = mejorDeSemana.get(s.semana);
+      if (!m || s.kg > m.kg || (s.kg === m.kg && s.reps > m.reps)) mejorDeSemana.set(s.semana, s);
+    });
+    let tope = null, ultimo = null;
+    [...mejorDeSemana.keys()].sort((a, b) => a - b).forEach(semana => {
+      const m = mejorDeSemana.get(semana);
+      if (tope !== null && m.kg > tope) ultimo = { kg: m.kg, reps: m.reps, semana, anterior: tope };
+      if (tope === null || m.kg > tope) tope = m.kg;
+    });
+    return ultimo;
   }
 
   /** Nombres de los ejercicios de las series (sin repetir aunque estén escritos distinto), con el primero que aparece como nombre. */
@@ -221,6 +225,74 @@
     return 'Cada semana es una nueva oportunidad. Te esperamos en el próximo entrenamiento.';
   }
 
+  // ---- Días de la rutina (tildes "DÍA n" de cada semana) ----
+
+  const MIN_SEMANAS_PATRON = 3;   // semanas cerradas necesarias para hablar de un patrón: con menos, es casualidad
+  const MAX_SEMANAS_PATRON = 6;   // se miran las últimas 6 semanas cerradas
+  const MAX_SEMANAS_TIRA = 8;     // semanas que se dibujan
+
+  const tasa = (h, p) => (p ? h / p : 0);
+
+  /**
+   * Recibe [{ semana, dia, hecho }] y devuelve null (sin datos) o
+   * { tira: [{ semana, enCurso, dias: [{ dia, hecho }] }], porDia: [{ dia, hechos, planificados }], mensaje, semanasAnalizadas }.
+   * La semana más nueva está "en curso": no se cuenta como falta lo que todavía no hizo. El patrón se calcula con las anteriores
+   * y solo si hay al menos MIN_SEMANAS_PATRON; si no, mensaje = null. Los tildes los marca la persona: es lo que ella declara.
+   */
+  function analizarDias(dias) {
+    const porSemana = new Map();
+    (Array.isArray(dias) ? dias : []).forEach(d => {
+      if (!porSemana.has(d.semana)) porSemana.set(d.semana, new Map());
+      const m = porSemana.get(d.semana);
+      m.set(d.dia, m.get(d.dia) === true || d.hecho === true);
+    });
+    const semanas = [...porSemana.keys()].sort((a, b) => a - b);
+    if (!semanas.length) return null;
+    const ultima = semanas[semanas.length - 1];
+    const lista = n => [...porSemana.get(n).entries()].sort((a, b) => a[0] - b[0]).map(([dia, hecho]) => ({ dia, hecho }));
+    const tira = semanas.slice(-MAX_SEMANAS_TIRA).map(n => ({ semana: n, enCurso: n === ultima, dias: lista(n) }));
+
+    const cerradas = semanas.slice(0, -1).slice(-MAX_SEMANAS_PATRON).map(n => ({ semana: n, dias: lista(n) }));
+    const conteo = new Map();
+    cerradas.forEach(s => s.dias.forEach(d => {
+      const c = conteo.get(d.dia) || { dia: d.dia, hechos: 0, planificados: 0 };
+      c.planificados++; if (d.hecho) c.hechos++;
+      conteo.set(d.dia, c);
+    }));
+    const porDia = [...conteo.values()].sort((a, b) => a.dia - b.dia);
+    const out = { tira, porDia, mensaje: null, semanasAnalizadas: cerradas.length };
+    if (cerradas.length < MIN_SEMANAS_PATRON) return out;
+
+    const hechos = porDia.reduce((a, c) => a + c.hechos, 0), planificados = porDia.reduce((a, c) => a + c.planificados, 0);
+    const global = tasa(hechos, planificados);
+    const N = cerradas.length;
+
+    // Semanas en las que solo se hizo el Día 1
+    const soloDia1 = cerradas.filter(s => s.dias.length > 1 && s.dias.every(d => d.hecho === (d.dia === 1))).length;
+    // Primera mitad de la rutina contra la segunda (solo si hay 3 días o más)
+    const k = porDia.length;
+    const mitad = Math.ceil(k / 2);
+    const grupo = pred => porDia.filter(pred).reduce((a, c) => ({ h: a.h + c.hechos, p: a.p + c.planificados }), { h: 0, p: 0 });
+    const ini = grupo(c => porDia.indexOf(c) < mitad), fin = grupo(c => porDia.indexOf(c) >= mitad);
+    const tIni = tasa(ini.h, ini.p), tFin = tasa(fin.h, fin.p);
+    // El día que más se escapa
+    const orden = [...porDia].sort((a, b) => tasa(a.hechos, a.planificados) - tasa(b.hechos, b.planificados) || b.dia - a.dia);
+    const peor = orden[0], mejor = orden[orden.length - 1];
+    const tPeor = tasa(peor.hechos, peor.planificados);
+    // Un solo día que se escapa mientras el resto se hace bien (no es "cerrar flojo": puede ser cualquier día)
+    const aislado = k >= 3 && tPeor <= 0.5 && tasa(orden[1].hechos, orden[1].planificados) >= 0.7;
+    const mensajeDia = `El Día ${peor.dia} es el que más se te escapa. Si querés, lo vemos para que te quede cómodo.`;
+
+    if (global === 1) out.mensaje = `Completaste todos los días de tus últimas ${N} semanas. Eso es constancia.`;
+    else if (global >= 0.85) out.mensaje = 'Venís completando casi todos los días de tu rutina. Muy bien.';
+    else if (soloDia1 >= Math.ceil(N / 2)) out.mensaje = 'En varias semanas hiciste solo el Día 1. Si algo te complica el resto de la semana, contáselo a tu entrenador y lo ajustamos.';
+    else if (aislado) out.mensaje = mensajeDia;
+    else if (k >= 3 && tIni >= 0.7 && tIni - tFin >= 0.3) out.mensaje = 'Arrancás la semana con todo, pero te cuesta cerrarla: los últimos días son los que más se te escapan.';
+    else if (k >= 2 && tPeor <= 0.5 && tasa(mejor.hechos, mejor.planificados) - tPeor >= 0.3) out.mensaje = mensajeDia;
+    else out.mensaje = `En tus últimas ${N} semanas hiciste ${hechos} de ${planificados} días de la rutina.`;
+    return out;
+  }
+
   /** "hace 5 min", "hace 2 h", "hace 3 días". Devuelve '' si la fecha no sirve. */
   function haceCuanto(iso, ahoraMs) {
     const t = Date.parse(iso);
@@ -268,6 +340,8 @@
       });
     }
     const asistencia = [...new Set(lista(x.asistencia).filter(fechaValida))].sort();
+    const dias = lista(x.dias).slice(0, 400).map(d => d && Number.isInteger(d.semana) && d.semana > 0 && d.semana < 10000 &&
+      Number.isInteger(d.dia) && d.dia >= 1 && d.dia <= 9 && typeof d.hecho === 'boolean' ? { semana: d.semana, dia: d.dia, hecho: d.hecho } : null).filter(Boolean);
     const objetivos = {};
     if (x.objetivos && typeof x.objetivos === 'object') {
       Object.keys(x.objetivos).forEach(k => {
@@ -283,9 +357,9 @@
     const RUTINA = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,}\/edit(#gid=\d{1,12})?$/;
     const rutina = typeof x.rutina === 'string' && RUTINA.test(x.rutina) ? x.rutina : '';
     const rutinaSemana = rutina && Number.isInteger(x.rutinaSemana) && x.rutinaSemana > 0 && x.rutinaSemana < 10000 ? x.rutinaSemana : null;
-    return { nombre, series, categorias, asistencia, objetivos, actualizado, rutina, rutinaSemana };
+    return { nombre, series, categorias, asistencia, objetivos, dias, actualizado, rutina, rutinaSemana };
   }
 
-  return { EJERCICIOS, agruparEjercicios, ejercicioInicial, nombresDeEjercicios, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, semanasEntrenadas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
+  return { EJERCICIOS, analizarDias, MIN_SEMANAS_PATRON, agruparEjercicios, ejercicioInicial, nombresDeEjercicios, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, semanasEntrenadas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
     mejoresPorReps, resumenEjercicio, desdeUltimasSemanas, diasEntrenados, diasPorMes, semanasCompletas };
 });
