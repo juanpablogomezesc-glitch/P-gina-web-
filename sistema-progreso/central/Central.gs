@@ -69,11 +69,11 @@ function armarCatalogo_(valores) {
 /**
  * Las pestañas viejas tienen otro orden de columnas: solo se leen las del formato actual.
  * Formato actual = "Ejercicio" en D y "Ser" en G. Los títulos de REP y KG pueden faltar o estar vacíos (hay planillas así:
- * los datos igual están en su lugar). Formato viejo = tiene "Kilogramos" en la columna N.
+ * los datos igual están en su lugar). Formato viejo = tiene "Kilogramos" o "KG" en la columna N (los pesos van en una sola columna al final).
  */
 function esFormatoNuevo_(filas) {
   const f = filas[0] || [];
-  const viejo = /^\s*kilo/i.test(String(f[13] == null ? '' : f[13]));
+  const viejo = /^\s*(kilo|kg)/i.test(String(f[13] == null ? '' : f[13]));
   return /ejercicio/i.test(String(f[3])) && /^\s*ser/i.test(String(f[6])) && !viejo;
 }
 
