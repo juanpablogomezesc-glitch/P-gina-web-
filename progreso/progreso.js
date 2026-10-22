@@ -226,7 +226,7 @@
     const hechosMes = (P.diasPorMes(datos.asistencia).find(x => x.mes === mesHoy) || { cantidad: 0 }).cantidad;
     const hayDatos = datos.series.length > 0 || datos.asistencia.length > 0;
     const texto = P.mensajeMotivacional({
-      racha: rachaInfo.racha, diasSemanaActual: rachaInfo.diasSemanaActual, faltan: rachaInfo.faltan,
+      racha: rachaInfo.racha, diasSemanaActual: rachaInfo.diasSemanaActual, faltan: rachaInfo.faltan, minimo: rachaInfo.minimo,
       objetivoCumplido: hechosMes > 0 && hechosMes >= (objetivos[mesHoy] || OBJETIVO_MENSUAL),
       record: null, hayDatos,   // los récords van en su propio aviso, debajo de los gráficos
     });
@@ -268,12 +268,13 @@
     const ultimaAsistencia = [...datos.asistencia].sort().pop();
     const asistencia = desde && ultimaAsistencia ? datos.asistencia.filter(f => f >= P.lunes(new Date(new Date(ultimaAsistencia + 'T00:00:00Z').getTime() - (semanasFiltro - 1) * 7 * 864e5).toISOString().slice(0, 10))) : datos.asistencia;
 
+    const minimo = P.minimoSemana(datos.dias);   // 2 días de rutina → la semana se completa con 2
     const res = document.getElementById('pr-resumen'); res.innerHTML = '';
     const dato = (rot, val, delta) => { const d = document.createElement('div'); d.className = 'dato'; d.innerHTML = `<div class="rotulo">${rot}</div><div class="valor">${val}</div>${delta ? `<div class="delta">${delta}</div>` : ''}`; res.appendChild(d); };
-    dato('Semanas completadas', P.semanasCompletas(asistencia), `con ${P.DIAS_PARA_SEMANA_COMPLETA} días o más${desde ? ' · período elegido' : ''}`);
+    dato('Semanas completadas', P.semanasCompletas(asistencia, minimo), `con ${minimo} ${minimo === 1 ? 'día' : 'días'}${minimo === P.DIAS_PARA_SEMANA_COMPLETA ? ' o más' : ' por semana'}${desde ? ' · período elegido' : ''}`);
     dato('Días entrenados', P.diasEntrenados(asistencia));
     const hoy = hoyIso();
-    const rachaInfo = P.rachaSemanas(datos.asistencia, hoy);
+    const rachaInfo = P.rachaSemanas(datos.asistencia, hoy, minimo);
     dato('Racha', `${rachaInfo.racha} <small>${rachaInfo.racha === 1 ? 'semana' : 'semanas'}</small>`, 'completas seguidas');
     const total = P.semanasEntrenadas(datos.series, datos.asistencia);
     dato('Semanas entrenando', `${total} <small>${total === 1 ? 'semana' : 'semanas'}</small>`, 'desde que empezaste');

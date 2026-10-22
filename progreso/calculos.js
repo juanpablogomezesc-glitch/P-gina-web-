@@ -104,6 +104,23 @@
     return [...porSemana.values()].filter(n => n >= minimo).length;
   }
 
+  /**
+   * Días que necesita ESTA persona para completar la semana: los días de su rutina (los "DÍA n" de sus últimas semanas),
+   * con tope en DIAS_PARA_SEMANA_COMPLETA. Quien entrena 2 días completa con 2; quien entrena 3, 4 o 5 completa con 3.
+   * Sin datos de la rutina, vale el general.
+   */
+  function minimoSemana(dias) {
+    const porSemana = new Map();
+    (dias || []).forEach(d => porSemana.set(d.semana, Math.max(porSemana.get(d.semana) || 0, d.dia)));
+    const ultimas = [...porSemana.keys()].sort((a, b) => a - b).slice(-3).map(n => porSemana.get(n));
+    if (!ultimas.length) return DIAS_PARA_SEMANA_COMPLETA;
+    const veces = new Map();
+    ultimas.forEach(n => veces.set(n, (veces.get(n) || 0) + 1));
+    let mejor = ultimas[ultimas.length - 1];   // si empatan, manda la semana más reciente
+    veces.forEach((v, n) => { if (v > veces.get(mejor)) mejor = n; });
+    return Math.max(1, Math.min(DIAS_PARA_SEMANA_COMPLETA, mejor));
+  }
+
   // ---- Récords, cambio semanal, racha y mensajes ----
 
   /**
@@ -198,7 +215,7 @@
     let cursor = diasSemanaActual >= minimo ? actual : restarSemana(actual);
     let racha = 0;
     while ((porSemana.get(cursor) || 0) >= minimo) { racha++; cursor = restarSemana(cursor); }
-    return { racha, diasSemanaActual, faltan: Math.max(0, minimo - diasSemanaActual) };
+    return { racha, diasSemanaActual, minimo, faltan: Math.max(0, minimo - diasSemanaActual) };
   }
 
   /**
@@ -212,11 +229,11 @@
   }
 
   /** Un mensaje corto según cómo viene la persona. Sin promesas ni comparaciones con otros. */
-  function mensajeMotivacional({ racha = 0, diasSemanaActual = 0, faltan = DIAS_PARA_SEMANA_COMPLETA, objetivoCumplido = false, record = null, hayDatos = true } = {}) {
+  function mensajeMotivacional({ racha = 0, diasSemanaActual = 0, faltan = DIAS_PARA_SEMANA_COMPLETA, minimo = DIAS_PARA_SEMANA_COMPLETA, objetivoCumplido = false, record = null, hayDatos = true } = {}) {
     if (!hayDatos) return 'Cuando empieces a entrenar, vas a ver acá tu progreso.';
     if (objetivoCumplido) return 'Cumpliste el objetivo del mes. Eso es constancia.';
     if (record) return `Nuevo récord en ${record.ejercicio.replace(/ C\/B$/, '')}: ${record.kg} kg. Es fruto de semanas de trabajo.`;
-    if (diasSemanaActual >= DIAS_PARA_SEMANA_COMPLETA) {
+    if (diasSemanaActual >= minimo) {
       return racha >= 4 ? `${racha} semanas seguidas entrenando. La fuerza se construye con constancia.`
         : racha >= 2 ? `${racha} semanas seguidas. Seguí con este ritmo.` : 'Semana completa. Buen trabajo.';
     }
@@ -360,6 +377,6 @@
     return { nombre, series, categorias, asistencia, objetivos, dias, actualizado, rutina, rutinaSemana };
   }
 
-  return { EJERCICIOS, analizarDias, MIN_SEMANAS_PATRON, agruparEjercicios, ejercicioInicial, nombresDeEjercicios, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, semanasEntrenadas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
+  return { EJERCICIOS, analizarDias, MIN_SEMANAS_PATRON, agruparEjercicios, ejercicioInicial, nombresDeEjercicios, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, semanasEntrenadas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, minimoSemana, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
     mejoresPorReps, resumenEjercicio, desdeUltimasSemanas, diasEntrenados, diasPorMes, semanasCompletas };
 });
