@@ -161,7 +161,7 @@ test('cambio semanal del 1RM entre las dos últimas semanas con datos', () => {
 test('racha: semanas completas seguidas; la semana en curso no corta la racha hasta que termina', () => {
   // semanas del 5/10, 12/10 y 19/10 con 3 días cada una; el 26/10 hay un día
   const fechas = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-19', '2026-10-20', '2026-10-21', '2026-10-26'];
-  assert.deepEqual(P.rachaSemanas(fechas, '2026-10-27'), { racha: 3, diasSemanaActual: 1, faltan: 2 }); // la semana del 26 va por 1 día: no corta
+  assert.deepEqual(P.rachaSemanas(fechas, '2026-10-27'), { racha: 3, diasSemanaActual: 1, minimo: 3, faltan: 2 }); // la semana del 26 va por 1 día: no corta
   assert.equal(P.rachaSemanas([...fechas, '2026-10-28', '2026-10-30'], '2026-10-30').racha, 4);         // la completó: suma
   assert.equal(P.rachaSemanas(fechas, '2026-11-09').racha, 0);                                           // dos semanas sin entrenar: se corta
   assert.equal(P.rachaSemanas([], '2026-10-27').racha, 0);
@@ -330,4 +330,25 @@ test('récords recientes: una semana nueva copiada con los mismos kilos no escon
   assert.deepEqual(r.map(x => [x.ejercicio, x.kg, x.semana, x.anterior]), [['Sentadilla C/B', 125, 101, 110]]);
   // pasada otra semana más sin superar nada, el récord ya no es reciente
   assert.deepEqual(P.recordsRecientes([...copia, s(103, 'Sentadilla C/B', 125, 1)]), []);
+});
+
+test('minimoSemana: los días de la rutina con tope en 3', () => {
+  const rutina = (n, semanas) => semanas.flatMap(s => Array.from({ length: n }, (_, i) => ({ semana: s, dia: i + 1, hecho: false })));
+  assert.equal(P.minimoSemana([]), 3);
+  assert.equal(P.minimoSemana(rutina(2, [5, 6, 7])), 2);
+  assert.equal(P.minimoSemana(rutina(3, [5, 6, 7])), 3);
+  assert.equal(P.minimoSemana(rutina(5, [5, 6, 7])), 3);
+  assert.equal(P.minimoSemana(rutina(1, [7])), 1);
+  // cambió de 3 a 2 días: manda la mayoría de las últimas 3 semanas, y si empatan la más reciente
+  assert.equal(P.minimoSemana([...rutina(3, [5]), ...rutina(2, [6, 7])]), 2);
+  assert.equal(P.minimoSemana([...rutina(2, [5]), ...rutina(3, [6, 7])]), 3);
+});
+
+test('racha y semanas completas con un mínimo de 2 días', () => {
+  const f = ['2026-10-05', '2026-10-07', '2026-10-12', '2026-10-14'];
+  assert.equal(P.semanasCompletas(f, 2), 2);
+  assert.equal(P.semanasCompletas(f), 0);
+  const r = P.rachaSemanas(f, '2026-10-15', 2);
+  assert.equal(r.racha, 2); assert.equal(r.minimo, 2); assert.equal(r.faltan, 0);
+  assert.match(P.mensajeMotivacional({ racha: 1, diasSemanaActual: 2, minimo: 2, faltan: 0 }), /Semana completa/);
 });
