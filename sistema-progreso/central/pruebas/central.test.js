@@ -85,6 +85,7 @@ test('detecta el formato nuevo por el encabezado y descarta el viejo', () => {
   const { api } = entorno();
   assert.equal(api.esFormatoNuevo_([ENCABEZADO_NUEVO]), true);
   assert.equal(api.esFormatoNuevo_([['', '', '', 'Ejercicios ', 'Obs', '', 'Ser', 'Rep', 'Kilogramos']]), true);
+  assert.equal(api.esFormatoNuevo_([['', '', '', 'EJERCICIOS', 'OBS', '', 'SER', 'Repeticiones ', '', '', '', '', '', 'KG']]), false); // pesos en N (planilla vieja de Melina)
   assert.equal(api.esFormatoNuevo_([['', '', '', 'Ejercicios ', 'Obs', '', 'SER', '', 'KG', '', '', 'RIR']]), true);   // REP sin título (planilla de Leandro Doldan)
   assert.equal(api.esFormatoNuevo_([['', '', '', 'EJERCICIOS', 'OBS', '', 'SER', 'REP', '', 'KG']]), true);          // KG corrido a la columna J
   assert.equal(api.esFormatoNuevo_([['', '', '', 'EJERCICIOS', 'OBS', '', 'SER', 'REP']]), true);                    // sin título de KG
