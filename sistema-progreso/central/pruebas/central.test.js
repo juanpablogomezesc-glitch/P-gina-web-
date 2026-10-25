@@ -35,7 +35,7 @@ const ENCABEZADO_NUEVO = ['', '', '', 'Ejercicios ', 'Obs', '', 'SER', 'REP', 'K
 const ENCABEZADO_VIEJO = ['', '', '', 'Ejercicios ', 'Obs', '', 'Ser', 'Repeticiones ', '', '', '', '', '', 'Kilogramos'];
 const semana = (n, filas, encabezado = ENCABEZADO_NUEVO, opciones) => hoja(`Semana ${n}`, [encabezado, ['', '', '', 'DÍA 1 '], ...filas], opciones);
 
-function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = {}) {
+function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null, titulos = {} } = {}) {
   const celdasCache = new Map();
   const vence = new Map();
   const reloj = { t: Date.now() };
@@ -64,7 +64,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = 
   const ctx = vm.createContext({
     Date: RelojFalso, Math, Error, JSON, Map, Set, Logger: { log() {} },
     Utilities: { formatDate: () => HOY },
-    DriveApp: { getFolderById: () => carpetaFalsa(drive || {}) },
+    DriveApp: { getFolderById: () => carpetaFalsa(drive || {}), getFileById: id => { if (!(id in titulos)) throw new Error('sin acceso'); return { getName: () => titulos[id] }; } },
     MimeType: { GOOGLE_SHEETS: 'sheet' },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ss,
@@ -73,7 +73,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = 
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) && !(vence.get(k) <= reloj.t) ? celdasCache.get(k) : null), put: (k, v, seg) => { celdasCache.set(k, v); vence.set(k, reloj.t + seg * 1000); } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, nombreDePila_, armarMensajes, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, fechaDePago_, sumarPagos_, membresiaDe_, controlarPagos, distancia_, nombresParecidos_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, nombreDePila_, armarMensajes, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, fechaDePago_, sumarPagos_, membresiaDe_, controlarPagos, claveAlumno_, pagoDe_, revisarNombres, actualizarNombres, distancia_, nombresParecidos_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, reloj, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -812,4 +812,68 @@ test('los nombres parecidos de finanzas incluyen errores de tipeo (una letra de 
   assert.deepEqual(Array.from(api.nombresParecidos_('Mike Sacarías', pagos)), ['mike zacarias']);
   assert.deepEqual(Array.from(api.nombresParecidos_('Dana', pagos)), ['dana fischer'], 'nombre incompleto');
   assert.deepEqual(Array.from(api.nombresParecidos_('Otra Persona', pagos)), []);
+});
+
+// ---- nombres: tolerancia a tildes, apodos, apóstrofes y errores de tipeo ----
+test('claveAlumno_ ignora tildes, apóstrofes, acentos sueltos y el apodo entre comillas', () => {
+  const { api } = entorno();
+  const k = api.claveAlumno_;
+  assert.equal(k('Pelado D´Alessandro'), k('Pelado D`Alessandro'));
+  assert.equal(k('Pelado D´Alessandro'), 'pelado dalessandro');
+  assert.equal(k('Eliel "Toto" Garnero'), k('Eliel Garnero'));
+  assert.equal(k('Eliel “Toto” Garnero'), 'eliel garnero');
+  assert.equal(k('  María   Belén  MILESSI '), k('Maria Belen Milessi'));
+  assert.equal(k(null), '');
+});
+
+test('el pago se encuentra aunque el nombre tenga UNA letra de diferencia, si es la única candidata y no es de otro alumno', () => {
+  const { api } = entorno();
+  const pagos = { 'fabriccio bonetti': '2026-10-13', 'marinela coggiola': '2026-10-19', 'romina schmidt': '2026-10-11', 'dana fischer': '2026-10-23', 'dana fisher': '2026-10-01' };
+  const todos = ['Fabricio Bonetti', 'Marianela Coggiola', 'Romina Schmitd', 'Dana Fischer', 'Ana'];
+  const f = n => { const r = api.pagoDe_(n, pagos, todos); return r && JSON.parse(JSON.stringify(r)); };
+  assert.deepEqual(f('Fabricio Bonetti'), { fecha: '2026-10-13', aproximado: 'fabriccio bonetti' });
+  assert.deepEqual(f('Marianela Coggiola'), { fecha: '2026-10-19', aproximado: 'marinela coggiola' });
+  assert.equal(f('Romina Schmitd'), null, 'dos letras de diferencia: no se asume (se avisa en controlarPagos)');
+  assert.deepEqual(f('Dana Fischer'), { fecha: '2026-10-23', aproximado: '' }, 'el exacto siempre gana');
+  assert.equal(f('Ana'), null, 'nombres muy cortos no se aproximan');
+  assert.equal(api.pagoDe_('Dana Fisher', { 'dana fischer': '2026-10-23' }, ['Dana Fisher', 'Dana Fischer']), null, 'finanzas tiene el nombre de OTRO alumno: no se le asigna');
+});
+
+test('dos candidatas parecidas: no se adivina', () => {
+  const { api } = entorno();
+  const pagos = { 'carlos pereyra': '2026-10-01', 'carlos pereira': '2026-10-02' };
+  assert.equal(api.pagoDe_('Carlos Perera', pagos, ['Carlos Perera']), null);
+});
+
+test('la membresía se calcula con el nombre aproximado y el pago más reciente', () => {
+  const fin = finanzas([['13/10/26', 'Fabriccio Bonetti', 'PE', '1']], [['12/08/26', 'Fabriccio Bonetti', 'PE', '1']]);
+  const { get } = entorno({ alumnos: [['Fabricio Bonetti', '', `https://docs.google.com/spreadsheets/d/${ID_A}/edit`, CLAVE_A, '']], planillas: { ...planillas, [ID_FINANZAS]: fin } });
+  assert.deepEqual(get({ accion: 'progreso', clave: CLAVE_A }).membresia, { vence: '2026-11-12' });
+});
+
+test('controlarPagos distingue las coincidencias aproximadas y sugiere para los que difieren en más letras', () => {
+  const fin = finanzas([['13/10/26', 'Fabriccio Bonetti', 'PE', '1'], ['11/10/26', 'Romina Schmidt', 'PE', '1'], ['10/10/26', 'Ana Gómez', 'PE', '1']]);
+  const al = [['Fabricio Bonetti', '', `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`, CLAVE_A, ''], ['Romina Schmitd', '', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, ''], ['Ana Gómez', '', `https://docs.google.com/spreadsheets/d/${idA(3)}/edit`, 'c3', '']];
+  const { api } = entorno({ alumnos: al, planillas: { [ID_FINANZAS]: fin } });
+  const t = Array.from(api.controlarPagos('2026-10-14')).join('\n');
+  assert.match(t, /COINCIDENCIA APROXIMADA.*\(1\).*Fabricio Bonetti ≈ "fabriccio bonetti"/);
+  assert.match(t, /AL DÍA \(2\)/, 'Ana y Fabricio (por aproximado)');
+  assert.match(t, /SIN PAGO ENCONTRADO \(1\).*Romina Schmitd \(¿será "romina schmidt" en finanzas\?\)/);
+});
+
+// ---- nombres de la pestaña contra los títulos de las planillas ----
+test('revisarNombres muestra cuáles difieren del título de su planilla y actualizarNombres los corrige sin tocar el resto', () => {
+  const al = [['Meli Mercado', '', `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`, CLAVE_A, ''],
+    ['Xavier Loza', '', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, ''],
+    ['Eliel "Toto" Garnero', '', `https://docs.google.com/spreadsheets/d/${idA(3)}/edit`, 'c3', ''],
+    ['Ana Gómez', '', `https://docs.google.com/spreadsheets/d/${idA(4)}/edit`, 'c4', ''],
+    ['Sin Acceso', '', `https://docs.google.com/spreadsheets/d/${idA(5)}/edit`, 'c5', '']];
+  const titulos = { [idA(1)]: 'Melina Mercado', [idA(2)]: 'Planilla Xavier Ortiz', [idA(3)]: 'Eliel Garnero', [idA(4)]: 'Ana Gómez', };
+  const { api, filas } = entorno({ alumnos: al, titulos });
+  const cambios = Array.from(api.revisarNombres(), c => [c.antes, c.despues]);
+  assert.deepEqual(cambios, [['Meli Mercado', 'Melina Mercado'], ['Xavier Loza', 'Xavier Ortiz']], 'el apodo entre comillas no cuenta como diferencia; sin acceso se saltea; Ana coincide');
+  assert.equal(JSON.stringify(filas), JSON.stringify(filas), 'sin escribir');
+  assert.equal(filas[1][0], 'Meli Mercado', 'revisar no escribe');
+  assert.equal(api.actualizarNombres(), 2);
+  assert.deepEqual([filas[1][0], filas[2][0], filas[3][0], filas[4][0]], ['Melina Mercado', 'Xavier Ortiz', 'Eliel "Toto" Garnero', 'Ana Gómez']);
 });

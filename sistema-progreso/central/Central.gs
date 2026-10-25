@@ -475,6 +475,34 @@ function cargarAlumnosDeCarpeta() {
   return filas.length;
 }
 
+/**
+ * Compara el nombre de cada alumno en la pestaña "Alumnos" con el título actual de su planilla en Drive (sin escribir nada).
+ * Si cambiaste el título de una planilla, el nombre de la pestaña no se entera: acá ves cuáles difieren.
+ */
+function revisarNombres() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_ALUMNOS);
+  if (!hoja) throw new Error('Primero ejecutá configurar.');
+  const cambios = [];
+  leerAlumnos_(hoja).filter(a => a.planilla).forEach(a => {
+    let titulo;
+    try { titulo = DriveApp.getFileById(a.planilla).getName(); } catch (err) { return; }
+    if (NO_SON_ALUMNOS.test(titulo)) return;
+    const nuevo = nombreDeTitulo_(titulo);
+    if (nuevo && claveAlumno_(nuevo) !== claveAlumno_(a.nombre)) cambios.push({ fila: a.fila, antes: a.nombre, despues: nuevo });
+  });
+  Logger.log(cambios.length ? `DIFIEREN (${cambios.length}):\n` + cambios.map(c => `Fila ${c.fila}: "${c.antes}" → "${c.despues}"`).join('\n') : 'Todos los nombres coinciden con el título de su planilla.');
+  return cambios;
+}
+
+/** Pone en la columna A de "Alumnos" el título actual de la planilla de cada alumno, solo donde difiere (mirá antes con revisarNombres). */
+function actualizarNombres() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_ALUMNOS);
+  const cambios = revisarNombres();
+  cambios.forEach(c => hoja.getRange(c.fila, 1).setValue(c.despues));
+  SpreadsheetApp.getActiveSpreadsheet().toast(`${cambios.length} nombre(s) actualizados.`, 'Progreso', 10);
+  return cambios.length;
+}
+
 // ---------- Mensajes para mandar los links ----------
 
 /** Primer nombre de un alumno, con la primera letra en mayúscula ("dana montenegro" → "Dana"). */
@@ -506,6 +534,12 @@ function armarMensajes() {
 
 const dosDigitos_ = n => String(n).padStart(2, '0');
 
+/**
+ * Para comparar nombres de PERSONAS (finanzas contra la planilla): sin tildes, mayúsculas ni espacios de más, sin apóstrofes ni acentos sueltos
+ * (D´Alessandro = D`Alessandro) y sin el apodo entre comillas (Eliel "Toto" Garnero = Eliel Garnero).
+ */
+const claveAlumno_ = t => claveNombre_(String(t == null ? '' : t).replace(/"[^"]*"|“[^”]*”/g, ' ').replace(/[´`'’‘]/g, ''));
+
 /** Fecha de hoy en Argentina, 'AAAA-MM-DD' (el reloj del servidor puede estar en otra zona horaria). */
 const hoyArgentina_ = () => Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
 
@@ -526,7 +560,7 @@ const sumarDias_ = (iso, dias) => new Date(new Date(iso + 'T00:00:00Z').getTime(
 function sumarPagos_(valores, pagos) {
   valores.forEach((fila, i) => {
     if (i === 0 && !fechaDePago_(fila[0])) return; // encabezado
-    const fecha = fechaDePago_(fila[0]), nombre = claveNombre_(fila[1] == null ? '' : fila[1]);
+    const fecha = fechaDePago_(fila[0]), nombre = claveAlumno_(fila[1]);
     if (!fecha || !nombre) return;
     if (!pagos[nombre] || fecha > pagos[nombre]) pagos[nombre] = fecha;
   });
@@ -573,15 +607,30 @@ function idsNoAbonan_(forzar) {
   }
 }
 
+/**
+ * Último pago de una persona. Primero por nombre exacto (ya normalizado); si no está, por un nombre de finanzas que difiera en UNA sola letra
+ * (un error de tipeo), siempre que sea una sola candidata y que ese nombre de finanzas no sea, tal cual, el de otro alumno.
+ * Devuelve { fecha, aproximado } o null.
+ */
+function pagoDe_(nombre, pagos, todosLosNombres) {
+  const k = claveAlumno_(nombre);
+  if (!k) return null;
+  if ((pagos || {})[k]) return { fecha: pagos[k], aproximado: '' };
+  if (k.length < 8) return null; // con nombres muy cortos, una letra de diferencia ya podría ser otra persona
+  const propios = new Set((todosLosNombres || []).map(claveAlumno_));
+  const candidatos = Object.keys(pagos || {}).filter(x => !propios.has(x) && distancia_(k, x) <= 1);
+  return candidatos.length === 1 ? { fecha: pagos[candidatos[0]], aproximado: candidatos[0] } : null;
+}
+
 /** { vence: 'AAAA-MM-DD' } con el vencimiento de la membresía, o null si no abona o no se encontró ningún pago con su nombre. */
-function membresiaDe_(nombre, idPlanilla, pagos, noAbonan) {
+function membresiaDe_(nombre, idPlanilla, pagos, noAbonan, todosLosNombres) {
   if ((noAbonan || []).indexOf(idPlanilla) >= 0) return null;
-  const ultimo = (pagos || {})[claveNombre_(nombre)];
-  return ultimo ? { vence: sumarDias_(ultimo, DIAS_MEMBRESIA) } : null;
+  const pago = pagoDe_(nombre, pagos, todosLosNombres);
+  return pago ? { vence: sumarDias_(pago.fecha, DIAS_MEMBRESIA) } : null;
 }
 
 /** Palabras de un nombre sin tildes ni mayúsculas, para sugerir parecidos. */
-const palabras_ = t => claveNombre_(t).split(' ').filter(Boolean);
+const palabras_ = t => claveAlumno_(t).split(' ').filter(Boolean);
 
 /** Cuántas letras hay que cambiar, sumar o sacar para pasar de un texto al otro ("fabricio" → "fabriccio" = 1). */
 function distancia_(a, b) {
@@ -619,16 +668,19 @@ function controlarPagos(hoyTexto) {
   if (!hoja) throw new Error('Primero ejecutá configurar.');
   const pagos = leerPagos_(true), noAbonan = idsNoAbonan_(true);
   const dias = iso => Math.round((new Date(iso + 'T00:00:00Z') - new Date(hoy + 'T00:00:00Z')) / 86400000);
-  const alDia = [], porVencer = [], vencidos = [], exentos = [], sinPago = [];
-  leerAlumnos_(hoja).filter(a => a.nombre && a.planilla).forEach(a => {
+  const alDia = [], porVencer = [], vencidos = [], exentos = [], sinPago = [], aproximados = [];
+  const alumnos = leerAlumnos_(hoja).filter(a => a.nombre && a.planilla);
+  const nombres = alumnos.map(a => a.nombre);
+  alumnos.forEach(a => {
     if (noAbonan.indexOf(a.planilla) >= 0) { exentos.push(a.nombre); return; }
-    const m = membresiaDe_(a.nombre, a.planilla, pagos, noAbonan);
-    if (!m) {
+    const pago = pagoDe_(a.nombre, pagos, nombres);
+    if (!pago) {
       const parecidos = nombresParecidos_(a.nombre, pagos);
       sinPago.push(a.nombre + (parecidos.length ? ` (¿será "${parecidos.slice(0, 2).join('" o "')}" en finanzas?)` : ''));
       return;
     }
-    const d = dias(m.vence);
+    if (pago.aproximado) aproximados.push(`${a.nombre} ≈ "${pago.aproximado}"`);
+    const d = dias(sumarDias_(pago.fecha, DIAS_MEMBRESIA));
     (d < 0 ? vencidos : d <= 5 ? porVencer : alDia).push(`${a.nombre} (${d < 0 ? 'venció hace ' + -d : 'quedan ' + d} días)`);
   });
   const lineas = [
@@ -636,6 +688,7 @@ function controlarPagos(hoyTexto) {
     `POR VENCER, 5 días o menos (${porVencer.length}): ${porVencer.join(' · ') || 'ninguno'}`,
     `VENCIDOS (${vencidos.length}): ${vencidos.join(' · ') || 'ninguno'}`,
     `NO ABONAN, en la subcarpeta (${exentos.length}): ${exentos.join(' · ') || 'ninguno'}`,
+    `COINCIDENCIA APROXIMADA, una letra de diferencia (${aproximados.length}) — funciona, pero conviene escribirlos igual: ${aproximados.join(' · ') || 'ninguna'}`,
     `SIN PAGO ENCONTRADO (${sinPago.length}) — revisá cómo está escrito el nombre: ${sinPago.join(' · ') || 'ninguno'}`,
   ];
   Logger.log(lineas.join('\n'));
@@ -696,7 +749,7 @@ function doGet(e) {
     ok: true, nombre: alumno.nombre, actualizado: new Date().toISOString(), ...resto,
     rutina: urlRutina_(alumno.planilla, semanaActual && semanaActual.gid), // el botón "Mi rutina": la planilla de ESTE alumno, nada más
     rutinaSemana: semanaActual ? semanaActual.n : null,
-    membresia: membresiaDe_(alumno.nombre, alumno.planilla, leerPagos_(), idsNoAbonan_()), // solo la fecha de vencimiento; null si no abona
+    membresia: membresiaDe_(alumno.nombre, alumno.planilla, leerPagos_(), idsNoAbonan_(), listaAlumnos_().map(a => a.nombre)), // solo la fecha de vencimiento; null si no abona
   };
   memoriaGuardar_('p_' + clave, { ...respuestaAlumno, paq: empaquetar_(series, dias) }, SEGUNDOS_EN_MEMORIA);
   return enviar_(JSON.stringify({ ...respuestaAlumno, series, dias }));
