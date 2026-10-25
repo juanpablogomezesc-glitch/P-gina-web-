@@ -54,7 +54,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = 
   };
   const ss = { getSheetByName: n => (n === 'Alumnos' ? hojaAlumnos : null), toast: t => avisos.push(t), getId: () => 'idDeLaPlanillaDeProgresoXXXXXXXXXXXXX' };
   const iterador = lista => { let i = 0; return { hasNext: () => i < lista.length, next: () => lista[i++] }; };
-  const carpetaFalsa = c => ({ getFilesByType: () => iterador((c.archivos || []).map(a => ({ getId: () => a.id, getName: () => a.titulo }))), getFolders: () => iterador((c.carpetas || []).map(carpetaFalsa)) });
+  const carpetaFalsa = c => ({ getName: () => c.nombre || 'Online', getFilesByType: () => iterador((c.archivos || []).map(a => ({ getId: () => a.id, getName: () => a.titulo }))), getFolders: () => iterador((c.carpetas || []).map(carpetaFalsa)) });
   const lecturas = { n: 0 };
   const ctx = vm.createContext({
     Date: RelojFalso, Math, Error, JSON, Map, Set, Logger: { log() {} },
@@ -643,6 +643,7 @@ test('previsualizar no escribe nada y separa nuevas, ya cargadas y salteadas (tu
   const { api, filas } = entorno({ drive, alumnos: [['Beto', 'beto@ejemplo.com', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, '']] });
   const antes = JSON.stringify(filas);
   const lineas = Array.from(api.previsualizarAlumnos()).join('\n');
+  assert.match(lineas, /CARPETA LEÍDA: "Online" \(4 planillas directamente adentro/, 'dice qué carpeta lee y cuántas planillas tiene adentro');
   assert.match(lineas, /A CARGAR \(1\): Dana Montenegro/, 'solo las que están directamente en la carpeta; Carla está en una subcarpeta y no cuenta');
   assert.ok(!/Carla/.test(lineas), 'las subcarpetas no se miran');
   assert.match(lineas, /YA CARGADAS: 1/);

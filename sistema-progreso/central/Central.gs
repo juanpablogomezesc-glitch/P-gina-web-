@@ -431,7 +431,9 @@ function planillasDeCarpeta_() {
   if (!hoja) throw new Error('Primero ejecutá configurar.');
   const cargados = new Set(leerAlumnos_(hoja).map(a => a.planilla).filter(Boolean));
   const propios = new Set([ss.getId(), CATALOGO_ID].filter(Boolean));
-  return { hoja, ...clasificarPlanillas_(planillasEnCarpeta_(DriveApp.getFolderById(CARPETA_ALUMNOS_ID)), cargados, propios) };
+  const carpeta = DriveApp.getFolderById(CARPETA_ALUMNOS_ID);
+  const planillas = planillasEnCarpeta_(carpeta);
+  return { hoja, carpeta: carpeta.getName(), total: planillas.length, ...clasificarPlanillas_(planillas, cargados, propios) };
 }
 
 /**
@@ -441,6 +443,7 @@ function planillasDeCarpeta_() {
 function previsualizarAlumnos() {
   const r = planillasDeCarpeta_();
   const lineas = [
+    `CARPETA LEÍDA: "${r.carpeta}" (${r.total} planillas directamente adentro, sin contar subcarpetas)`,
     `A CARGAR (${r.nuevas.length}): ${r.nuevas.map(x => x.nombre).join(' · ') || 'ninguna'}`,
     `YA CARGADAS: ${r.yaCargadas.length}`,
     `SALTEADAS, no son de un alumno (${r.salteadas.length}): ${r.salteadas.map(x => x.titulo).join(' · ') || 'ninguna'}`,
