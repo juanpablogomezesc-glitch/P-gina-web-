@@ -70,7 +70,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = 
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) && !(vence.get(k) <= reloj.t) ? celdasCache.get(k) : null), put: (k, v, seg) => { celdasCache.set(k, v); vence.set(k, reloj.t + seg * 1000); } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, primerNombre_, armarMensajes, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, nombreDePila_, armarMensajes, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, reloj, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -679,30 +679,39 @@ test('cargar muchos alumnos: claves todas distintas', () => {
 });
 
 // ---- mensajes de WhatsApp ----
-test('primerNombre_ deja el primer nombre con mayúscula inicial', () => {
+test('nombreDePila_ deja el primer nombre con mayúscula inicial', () => {
   const { api } = entorno();
-  for (const [n, e] of [['dana montenegro', 'Dana'], ['  BETO   Pérez ', 'Beto'], ['Carla', 'Carla'], ['', '']]) assert.equal(api.primerNombre_(n), e, n);
+  for (const [n, e] of [['dana montenegro', 'Dana'], ['  BETO   Pérez ', 'Beto'], ['Carla', 'Carla'], ['', '']]) assert.equal(api.nombreDePila_(n), e, n);
 });
 
-test('armarMensajes escribe en la columna F el mensaje con el nombre y el link personal de cada alumno que ya tiene clave', () => {
+test('armarMensajes escribe en la columna G el mensaje con el nombre y el link personal de cada alumno que ya tiene clave', () => {
   const { api, filas } = entorno({ alumnos: [
     ['dana montenegro', '', `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`, CLAVE_A, ''],
     ['Beto Pérez', '', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, '', ''],   // todavía sin clave: no hay mensaje
   ] });
   assert.equal(api.armarMensajes(), 1);
-  assert.match(filas[1][5], /^Hola Dana! /);
-  assert.ok(filas[1][5].includes(`/progreso.html?c=${CLAVE_A}`), 'lleva su link personal');
-  assert.ok(!filas[1][5].includes('{nombre}') && !filas[1][5].includes('{link}'), 'no quedan marcas sin completar');
-  assert.equal(filas[2][5], '', 'sin clave no hay mensaje');
-  assert.equal(filas[0][5], 'Mensaje para WhatsApp');
-  const antes = filas[1][5];
+  assert.match(filas[1][6], /^Hola Dana! /);
+  assert.ok(filas[1][6].includes(`/progreso.html?c=${CLAVE_A}`), 'lleva su link personal');
+  assert.ok(!filas[1][6].includes('{nombre}') && !filas[1][6].includes('{link}'), 'no quedan marcas sin completar');
+  assert.equal(filas[2][6], '', 'sin clave no hay mensaje');
+  assert.equal(filas[0][6], 'Mensaje para WhatsApp');
+  assert.ok(filas[1][5] === undefined || filas[1][5] === '', 'la columna F ("Acceso enviado" del script de mails) no se toca');
+  const antes = filas[1][6];
   api.armarMensajes();
-  assert.equal(filas[1][5], antes, 'ejecutarla de nuevo no cambia nada');
+  assert.equal(filas[1][6], antes, 'ejecutarla de nuevo no cambia nada');
 });
 
 test('el mensaje de cada alumno lleva solo su propio link', () => {
   const { api, filas } = entorno({ alumnos: [['Ana', '', `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`, CLAVE_A, ''], ['Beto', '', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, '']] });
   api.armarMensajes();
-  assert.ok(filas[1][5].includes(CLAVE_A) && !filas[1][5].includes(CLAVE_B));
-  assert.ok(filas[2][5].includes(CLAVE_B) && !filas[2][5].includes(CLAVE_A));
+  assert.ok(filas[1][6].includes(CLAVE_A) && !filas[1][6].includes(CLAVE_B));
+  assert.ok(filas[2][6].includes(CLAVE_B) && !filas[2][6].includes(CLAVE_A));
+});
+
+test('armarMensajes no pisa la columna F ("Acceso enviado") del script de mails', () => {
+  const fecha = new Date(2026, 9, 20);
+  const { api, filas } = entorno({ alumnos: [['Ana', 'ana@ejemplo.com', `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`, CLAVE_A, '', fecha]] });
+  api.armarMensajes();
+  assert.equal(filas[1][5], fecha, 'la fecha de envío sigue ahí');
+  assert.match(filas[1][6], /^Hola Ana! /);
 });
