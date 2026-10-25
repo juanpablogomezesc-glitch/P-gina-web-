@@ -26,6 +26,8 @@ const SEGUNDOS_LISTA_ALUMNOS = 60;   // la lista de alumnos se lee de la planill
 const CARPETA_ALUMNOS_ID = '17lWIhOvGDypNwmQAnff6BNE4ufhtGeYQ';
 // Planillas de la carpeta que NO son de un alumno (por el nombre): se saltean. Agregá palabras si hace falta.
 const NO_SON_ALUMNOS = /dashboard|excercise|exercise|ejercicios|progreso|modelo|plantilla|copia de|^juan pablo g[oó]mez|catalogo|catálogo/i;
+// Mensaje de WhatsApp para cada alumno (armarMensajes lo escribe en la columna F de "Alumnos"). {nombre} y {link} se completan solos.
+const MENSAJE_WHATSAPP = 'Hola {nombre}! Te paso tu link personal para ver tu progreso, tu rutina y sacar turnos: {link}\n\nGuardalo en tu celular: abrilo, tocá Compartir y elegí "Añadir a pantalla de inicio", así te queda como una app. Es solo tuyo, no lo compartas.';
 const LINK_PARA_MEDIR = '';          // solo para medirTiempos: el link de la planilla que querés medir
 // ======================
 
@@ -464,6 +466,33 @@ function cargarAlumnosDeCarpeta() {
   Logger.log(`Se agregaron ${filas.length} alumno(s): ${r.nuevas.map(x => x.nombre).join(' · ')}`);
   generarClaves();
   return filas.length;
+}
+
+// ---------- Mensajes para mandar los links ----------
+
+/** Primer nombre de un alumno, con la primera letra en mayúscula ("dana montenegro" → "Dana"). */
+function primerNombre_(nombre) {
+  const p = limpiarNombre_(nombre).split(' ')[0] || '';
+  return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+}
+
+/**
+ * Escribe en la columna F ("Mensaje para WhatsApp") el mensaje de cada alumno que ya tiene su link, listo para copiar y pegar.
+ * Se puede ejecutar de nuevo cuando quieras: reescribe la columna F (cambiá el texto en MENSAJE_WHATSAPP, arriba).
+ */
+function armarMensajes() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName(HOJA_ALUMNOS);
+  if (!hoja) throw new Error('Primero ejecutá configurar.');
+  const alumnos = leerAlumnos_(hoja);
+  if (!alumnos.length) return 0;
+  hoja.getRange(1, 6).setValue('Mensaje para WhatsApp').setFontWeight('bold').setBackground('#f3f3f3');
+  const mensajes = alumnos.map(a => [a.nombre && a.clave ? MENSAJE_WHATSAPP.replace('{nombre}', primerNombre_(a.nombre)).replace('{link}', `${PAGINA}?c=${a.clave}`) : '']);
+  hoja.getRange(2, 6, mensajes.length, 1).setValues(mensajes);
+  const hechos = mensajes.filter(m => m[0]).length;
+  ss.toast(`${hechos} mensaje(s) listos en la columna F.`, 'Progreso', 10);
+  Logger.log(`${hechos} mensaje(s) listos en la columna F.`);
+  return hechos;
 }
 
 // ---------- Web app ----------

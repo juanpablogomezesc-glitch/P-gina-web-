@@ -50,6 +50,9 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = 
       // una celda con ficha/link de Drive muestra el nombre del archivo, pero guarda la dirección real
       getRichTextValues: () => Array.from({ length: nf }, (_, i) => [{ getLinkUrl: () => enlaces[f - 1 + i] || null }]),
       setValues: v => v.forEach((fila, i) => fila.forEach((x, j) => { (filasAlumnos[f - 1 + i] = filasAlumnos[f - 1 + i] || [])[c - 1 + j] = x; })),
+      setValue(x) { (filasAlumnos[f - 1] = filasAlumnos[f - 1] || [])[c - 1] = x; return this; },
+      setFontWeight() { return this; },
+      setBackground() { return this; },
     }),
   };
   const ss = { getSheetByName: n => (n === 'Alumnos' ? hojaAlumnos : null), toast: t => avisos.push(t), getId: () => 'idDeLaPlanillaDeProgresoXXXXXXXXXXXXX' };
@@ -67,7 +70,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = 
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) && !(vence.get(k) <= reloj.t) ? celdasCache.get(k) : null), put: (k, v, seg) => { celdasCache.set(k, v); vence.set(k, reloj.t + seg * 1000); } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, primerNombre_, armarMensajes, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, reloj, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -673,4 +676,33 @@ test('cargar muchos alumnos: claves todas distintas', () => {
   const claves = filas.slice(1).map(f => f[3]);
   assert.equal(new Set(claves).size, 69);
   assert.ok(claves.every(c => /^[a-zA-Z0-9]{24}$/.test(c)));
+});
+
+// ---- mensajes de WhatsApp ----
+test('primerNombre_ deja el primer nombre con mayúscula inicial', () => {
+  const { api } = entorno();
+  for (const [n, e] of [['dana montenegro', 'Dana'], ['  BETO   Pérez ', 'Beto'], ['Carla', 'Carla'], ['', '']]) assert.equal(api.primerNombre_(n), e, n);
+});
+
+test('armarMensajes escribe en la columna F el mensaje con el nombre y el link personal de cada alumno que ya tiene clave', () => {
+  const { api, filas } = entorno({ alumnos: [
+    ['dana montenegro', '', `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`, CLAVE_A, ''],
+    ['Beto Pérez', '', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, '', ''],   // todavía sin clave: no hay mensaje
+  ] });
+  assert.equal(api.armarMensajes(), 1);
+  assert.match(filas[1][5], /^Hola Dana! /);
+  assert.ok(filas[1][5].includes(`/progreso.html?c=${CLAVE_A}`), 'lleva su link personal');
+  assert.ok(!filas[1][5].includes('{nombre}') && !filas[1][5].includes('{link}'), 'no quedan marcas sin completar');
+  assert.equal(filas[2][5], '', 'sin clave no hay mensaje');
+  assert.equal(filas[0][5], 'Mensaje para WhatsApp');
+  const antes = filas[1][5];
+  api.armarMensajes();
+  assert.equal(filas[1][5], antes, 'ejecutarla de nuevo no cambia nada');
+});
+
+test('el mensaje de cada alumno lleva solo su propio link', () => {
+  const { api, filas } = entorno({ alumnos: [['Ana', '', `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`, CLAVE_A, ''], ['Beto', '', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, '']] });
+  api.armarMensajes();
+  assert.ok(filas[1][5].includes(CLAVE_A) && !filas[1][5].includes(CLAVE_B));
+  assert.ok(filas[2][5].includes(CLAVE_B) && !filas[2][5].includes(CLAVE_A));
 });
