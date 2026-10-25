@@ -10,10 +10,12 @@
   const MAX_REPS_ESTIMABLES = 10; // más de 10 repeticiones: la fórmula pierde precisión, no se usa
   const DIAS_PARA_SEMANA_COMPLETA = 3;
   const MAX_SERIES = 20000;  // tope de filas aceptadas del script central
+  const MAX_DIAS = 400;      // tope de tildes de día aceptados (se conservan los más nuevos)
   const MAX_NOMBRE = 60;     // largo máximo del nombre de un ejercicio
   const DIA_MS = 24 * 60 * 60 * 1000;
 
   /** Para comparar nombres sin importar mayúsculas, tildes ni espacios de más. */
+  // COPIA de claveNombre_ en Central.gs: tienen que dar siempre lo mismo (lo comprueba una prueba).
   const clave = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
   const es = (s, ejercicio) => clave(s.ejercicio) === clave(ejercicio);
 
@@ -97,11 +99,16 @@
     return [...cuenta.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([mes, cantidad]) => ({ mes, cantidad }));
   }
 
-  /** Semanas (lunes a domingo) con al menos `minimo` días entrenados. */
-  function semanasCompletas(fechas, minimo = DIAS_PARA_SEMANA_COMPLETA) {
+  /** Cuántos días distintos se entrenaron en cada semana (lunes a domingo): Map(lunes → cantidad). */
+  function diasPorSemana(fechas) {
     const porSemana = new Map();
     [...new Set(fechas)].forEach(f => { const l = lunes(f); porSemana.set(l, (porSemana.get(l) || 0) + 1); });
-    return [...porSemana.values()].filter(n => n >= minimo).length;
+    return porSemana;
+  }
+
+  /** Semanas (lunes a domingo) con al menos `minimo` días entrenados. */
+  function semanasCompletas(fechas, minimo = DIAS_PARA_SEMANA_COMPLETA) {
+    return [...diasPorSemana(fechas).values()].filter(n => n >= minimo).length;
   }
 
   /**
@@ -208,8 +215,7 @@
    * necesarios, se cuenta desde la anterior. Devuelve { racha, diasSemanaActual, faltan }. `hoy` es 'AAAA-MM-DD'.
    */
   function rachaSemanas(fechas, hoy, minimo = DIAS_PARA_SEMANA_COMPLETA) {
-    const porSemana = new Map();
-    [...new Set(fechas)].forEach(f => { const l = lunes(f); porSemana.set(l, (porSemana.get(l) || 0) + 1); });
+    const porSemana = diasPorSemana(fechas);
     const actual = lunes(hoy);
     const diasSemanaActual = porSemana.get(actual) || 0;
     let cursor = diasSemanaActual >= minimo ? actual : restarSemana(actual);
@@ -224,15 +230,14 @@
    */
   function semanasEntrenadas(series, fechas) {
     const conPesos = new Set(series.map(s => s.semana)).size;
-    const conAsistencia = new Set(fechas.map(lunes)).size;
+    const conAsistencia = diasPorSemana(fechas).size;
     return Math.max(conPesos, conAsistencia);
   }
 
   /** Un mensaje corto según cómo viene la persona. Sin promesas ni comparaciones con otros. */
-  function mensajeMotivacional({ racha = 0, diasSemanaActual = 0, faltan = DIAS_PARA_SEMANA_COMPLETA, minimo = DIAS_PARA_SEMANA_COMPLETA, objetivoCumplido = false, record = null, hayDatos = true } = {}) {
+  function mensajeMotivacional({ racha = 0, diasSemanaActual = 0, faltan = DIAS_PARA_SEMANA_COMPLETA, minimo = DIAS_PARA_SEMANA_COMPLETA, objetivoCumplido = false, hayDatos = true } = {}) {
     if (!hayDatos) return 'Cuando empieces a entrenar, vas a ver acá tu progreso.';
     if (objetivoCumplido) return 'Cumpliste el objetivo del mes. Eso es constancia.';
-    if (record) return `Nuevo récord en ${record.ejercicio.replace(/ C\/B$/, '')}: ${record.kg} kg. Es fruto de semanas de trabajo.`;
     if (diasSemanaActual >= minimo) {
       return racha >= 4 ? `${racha} semanas seguidas entrenando. La fuerza se construye con constancia.`
         : racha >= 2 ? `${racha} semanas seguidas. Seguí con este ritmo.` : 'Semana completa. Buen trabajo.';
@@ -253,10 +258,11 @@
   /**
    * Recibe [{ semana, dia, hecho }] y devuelve null (sin datos) o
    * { tira: [{ semana, enCurso, dias: [{ dia, hecho }] }], porDia: [{ dia, hechos, planificados }], mensaje, semanasAnalizadas }.
-   * La semana más nueva está "en curso": no se cuenta como falta lo que todavía no hizo. El patrón se calcula con las anteriores
+   * `diasEstaSemana` = días tildados en el calendario esta semana (undefined si no hay calendario).
+   * La semana en curso no cuenta como falta lo que todavía no hizo. El patrón se calcula con las anteriores
    * y solo si hay al menos MIN_SEMANAS_PATRON; si no, mensaje = null. Los tildes los marca la persona: es lo que ella declara.
    */
-  function analizarDias(dias) {
+  function analizarDias(dias, { diasEstaSemana } = {}) {
     const porSemana = new Map();
     (Array.isArray(dias) ? dias : []).forEach(d => {
       if (!porSemana.has(d.semana)) porSemana.set(d.semana, new Map());
@@ -265,7 +271,17 @@
     });
     const semanas = [...porSemana.keys()].sort((a, b) => a - b);
     if (!semanas.length) return null;
-    const ultima = semanas[semanas.length - 1];
+    // La semana "en curso" es la última con algún día tildado, o la siguiente si todavía no se tildó nada esta semana (calendario).
+    // Las semanas más nuevas que esa (la rutina creada por adelantado, todavía sin tildar) se ignoran: no son faltas.
+    const conTilde = semanas.filter(n => [...porSemana.get(n).values()].some(Boolean));
+    let ultima = semanas[semanas.length - 1];
+    if (conTilde.length) {
+      const act = conTilde[conTilde.length - 1];
+      const siguiente = semanas.find(n => n > act);
+      const empezoEstaSemana = diasEstaSemana !== undefined && diasEstaSemana >= 1;
+      ultima = siguiente !== undefined && !empezoEstaSemana ? siguiente : act;
+    }
+    semanas.splice(semanas.indexOf(ultima) + 1);
     const lista = n => [...porSemana.get(n).entries()].sort((a, b) => a[0] - b[0]).map(([dia, hecho]) => ({ dia, hecho }));
     const tira = semanas.slice(-MAX_SEMANAS_TIRA).map(n => ({ semana: n, enCurso: n === ultima, dias: lista(n) }));
 
@@ -341,7 +357,7 @@
     // Cualquier ejercicio: lo único que se exige es que sea un texto corto y razonable (se muestra como texto, nunca como HTML).
     const limpiarTexto = (t, largo) => (typeof t === 'string' ? t.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, largo) : ''); // eslint-disable-line no-control-regex
     const nombres = new Map(); // nombre comparable → primer nombre válido (así "despegue c/b" y "Despegue C/B" son el mismo)
-    const series = lista(x.series).slice(0, MAX_SERIES).map(s => {
+    const series = lista(x.series).slice(-MAX_SERIES).map(s => {
       const ej = s && limpiarTexto(s.ejercicio, MAX_NOMBRE);
       if (!ej) return null;
       if (!nombres.has(clave(ej))) nombres.set(clave(ej), ej);
@@ -357,7 +373,7 @@
       });
     }
     const asistencia = [...new Set(lista(x.asistencia).filter(fechaValida))].sort();
-    const dias = lista(x.dias).slice(0, 400).map(d => d && Number.isInteger(d.semana) && d.semana > 0 && d.semana < 10000 &&
+    const dias = lista(x.dias).slice(-MAX_DIAS).map(d => d && Number.isInteger(d.semana) && d.semana > 0 && d.semana < 10000 &&
       Number.isInteger(d.dia) && d.dia >= 1 && d.dia <= 9 && typeof d.hecho === 'boolean' ? { semana: d.semana, dia: d.dia, hecho: d.hecho } : null).filter(Boolean);
     const objetivos = {};
     if (x.objetivos && typeof x.objetivos === 'object') {
@@ -377,6 +393,15 @@
     return { nombre, series, categorias, asistencia, objetivos, dias, actualizado, rutina, rutinaSemana };
   }
 
-  return { EJERCICIOS, analizarDias, MIN_SEMANAS_PATRON, agruparEjercicios, ejercicioInicial, nombresDeEjercicios, limpiarRespuesta, nuevoRecord, recordsRecientes, cambioSemanal, rachaSemanas, semanasEntrenadas, mensajeMotivacional, haceCuanto, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA, minimoSemana, epley, lunes, desdeSemana, rmPorSemana, recordPersonal,
-    mejoresPorReps, resumenEjercicio, desdeUltimasSemanas, diasEntrenados, diasPorMes, semanasCompletas };
+  return {
+    // constantes
+    EJERCICIOS, MIN_SEMANAS_PATRON, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA,
+    // ejercicios
+    epley, rmPorSemana, recordPersonal, mejoresPorReps, resumenEjercicio, desdeSemana, desdeUltimasSemanas,
+    nuevoRecord, recordsRecientes, cambioSemanal, nombresDeEjercicios, agruparEjercicios, ejercicioInicial,
+    // días entrenados, semanas y racha
+    lunes, diasEntrenados, diasPorMes, diasPorSemana, semanasCompletas, semanasEntrenadas, minimoSemana, rachaSemanas, analizarDias,
+    // textos y validación
+    mensajeMotivacional, haceCuanto, limpiarRespuesta,
+  };
 });

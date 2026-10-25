@@ -110,7 +110,7 @@
   const selEjercicio = document.getElementById('sel-ejercicio');
   function elegir(nombre) {
     ejercicio = nombre;
-    try { localStorage.setItem('pr-ejercicio', nombre); } catch (e) {}
+    try { localStorage.setItem('pr-ejercicio' + sufijoAlumno, nombre); } catch (e) {}
     ocultarTip(); render();
   }
   function opcion(texto, valor, elegida) { const o = document.createElement('option'); o.textContent = texto; o.value = valor; o.selected = elegida; return o; }
@@ -124,12 +124,16 @@
   selGrupo.addEventListener('change', () => { const g = gruposActuales.find(x => x.grupo === selGrupo.value); if (g) elegir(g.ejercicios[0]); });
   selEjercicio.addEventListener('change', () => elegir(selEjercicio.value));
 
+  // Lo que se recuerda en el dispositivo (ejercicio elegido, peso) va aparte por alumno: así no se mezcla si dos personas usan el mismo celular.
+  const hashCorto = t => { let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+  const sufijoAlumno = clave ? '-' + hashCorto(clave) : '';
+
   // ---- Render ----
   let ejercicio = null; // el ejercicio elegido; si todavía no eligió, se abre con el principal que tenga datos
-  try { ejercicio = localStorage.getItem('pr-ejercicio') || null; } catch (e) {}
+  try { ejercicio = localStorage.getItem('pr-ejercicio' + sufijoAlumno) || null; } catch (e) {}
   const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let peso = null;
-  try { const g = parseFloat(localStorage.getItem('pr-peso')); if (g >= 30 && g <= 300) peso = g; } catch (e) {}
+  try { const g = parseFloat(localStorage.getItem('pr-peso' + sufijoAlumno)); if (g >= 30 && g <= 300) peso = g; } catch (e) {}
 
   const dos = n => String(n).padStart(2, '0');
   /** 'AAAA-MM-DD' de hoy. En la vista de ejemplo se usa el último día con datos, para que se vea como una persona activa. */
@@ -182,7 +186,8 @@
   /** Tira de las últimas semanas: un casillero por día de la rutina (✓ hecho, – faltó, ○ pendiente de la semana en curso) y el patrón. */
   function dibujarDiasSemana() {
     const titulo = document.getElementById('h-dias-semana'), cont = document.getElementById('dias-semana');
-    const a = P.analizarDias(datos.dias || []);
+    const hoy = hoyIso();
+    const a = P.analizarDias(datos.dias || [], { diasEstaSemana: datos.asistencia.length ? (P.diasPorSemana(datos.asistencia).get(P.lunes(hoy)) || 0) : undefined });
     cont.innerHTML = '';
     titulo.hidden = cont.hidden = !a;
     if (!a) return;
@@ -213,8 +218,9 @@
       fila.append(cab, dias); cont.appendChild(fila);
     });
     const ley = document.createElement('p'); ley.className = 'leyenda';
-    ley.textContent = a.mensaje ? `Lo marcás vos en tu planilla. El patrón se calcula con tus últimas ${a.semanasAnalizadas} semanas cerradas.`
-      : `Lo marcás vos en tu planilla. Con ${P.MIN_SEMANAS_PATRON} semanas completas empezamos a mostrarte tu patrón.`;
+    const pesos = ' Los pesos de cada día aparecen en tus gráficos cuando lo tildás.';
+    ley.textContent = (a.mensaje ? `Lo marcás vos en tu planilla. El patrón se calcula con tus últimas ${a.semanasAnalizadas} semanas cerradas.`
+      : `Lo marcás vos en tu planilla. Con ${P.MIN_SEMANAS_PATRON} semanas completas empezamos a mostrarte tu patrón.`) + pesos;
     cont.appendChild(ley);
   }
 
@@ -277,7 +283,7 @@
     const rachaInfo = P.rachaSemanas(datos.asistencia, hoy, minimo);
     dato('Racha', `${rachaInfo.racha} <small>${rachaInfo.racha === 1 ? 'semana' : 'semanas'}</small>`, 'completas seguidas');
     const total = P.semanasEntrenadas(datos.series, datos.asistencia);
-    dato('Semanas entrenando', `${total} <small>${total === 1 ? 'semana' : 'semanas'}</small>`, 'desde que empezaste');
+    dato('Semanas entrenando', `${total} <small>${total === 1 ? 'semana' : 'semanas'}</small>`, 'con entrenamientos registrados');
     pintarMensaje(rachaInfo, hoy);
 
     const grupos = P.agruparEjercicios(datos.series, datos.categorias);
@@ -322,7 +328,7 @@
   campo.addEventListener('input', () => {
     const v = parseFloat(campo.value.replace(',', '.'));
     peso = v >= 30 && v <= 300 ? v : null;
-    try { peso ? localStorage.setItem('pr-peso', peso) : localStorage.removeItem('pr-peso'); } catch (e) {}
+    try { peso ? localStorage.setItem('pr-peso' + sufijoAlumno, peso) : localStorage.removeItem('pr-peso' + sufijoAlumno); } catch (e) {}
     render();
   });
   document.querySelectorAll('.filtros button[data-semanas]').forEach(b => b.addEventListener('click', () => {
@@ -341,7 +347,6 @@
   };
 
   // La última respuesta queda guardada en este dispositivo: la próxima vez se ve al instante y se actualiza de fondo.
-  const hashCorto = t => { let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
   const llaveGuardado = clave ? 'pr-datos-' + hashCorto(clave) : '';
   function leerGuardado() {
     try {

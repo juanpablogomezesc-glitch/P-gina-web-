@@ -14,8 +14,6 @@
 .dato .valor small { font-size: .9rem; color: var(--suave); font-weight: 500; }
 .dato .delta { font-size: .8rem; color: var(--suave); margin-top: 4px; }
 .dato .delta.sube { color: #7ed48b; }
-.pr-graficos { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-.pr-graficos.una { grid-template-columns: minmax(0, 560px); }
 .grafico { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 14px 14px 8px; }
 .grafico header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .grafico h3 { font-size: 1rem; }
@@ -62,8 +60,6 @@
 /* Mensaje, récords nuevos y "última actualización" */
 .progreso .pr-mensaje { margin-top: 12px; padding: 14px 16px; background: var(--acento-suave); border: 1px solid rgba(255, 107, 26, .35); border-left: 4px solid var(--acento); border-radius: 10px; }
 .mensaje-texto { font-weight: 600; line-height: 1.4; }
-.mensaje-records { list-style: none; margin-top: 8px; display: grid; gap: 4px; color: var(--suave); font-size: .9rem; font-variant-numeric: tabular-nums; }
-.mensaje-records li { color: var(--texto); }
 .dato .delta.record { color: var(--acento); font-weight: 600; }
 .pr-estado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: -6px 0 16px; color: var(--suave); font-size: .85rem; }
 .pr-estado button { font: 600 .82rem var(--fuente-texto); color: var(--texto); background: none; border: 1px solid var(--borde); border-radius: 999px; padding: 8px 14px; min-height: 40px; cursor: pointer; transition: border-color .15s var(--ease-out), opacity .15s var(--ease-out); }

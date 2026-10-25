@@ -172,8 +172,6 @@ test('racha: semanas completas seguidas; la semana en curso no corta la racha ha
 test('mensaje motivacional: prioridades y textos', () => {
   const m = P.mensajeMotivacional;
   assert.match(m({ hayDatos: false }), /Cuando empieces/);
-  assert.match(m({ objetivoCumplido: true, record: { ejercicio: 'Despegue C/B', kg: 150 } }), /objetivo del mes/);  // el objetivo gana al récord
-  assert.match(m({ record: { ejercicio: 'Despegue C/B', kg: 150 }, racha: 5, diasSemanaActual: 3 }), /Nuevo récord en Despegue: 150 kg/);
   assert.match(m({ racha: 5, diasSemanaActual: 3, faltan: 0 }), /5 semanas seguidas entrenando/);
   assert.match(m({ racha: 2, diasSemanaActual: 3, faltan: 0 }), /2 semanas seguidas\. Seguí/);
   assert.equal(m({ racha: 1, diasSemanaActual: 3, faltan: 0 }), 'Semana completa. Buen trabajo.');
@@ -351,4 +349,44 @@ test('racha y semanas completas con un mínimo de 2 días', () => {
   const r = P.rachaSemanas(f, '2026-10-15', 2);
   assert.equal(r.racha, 2); assert.equal(r.minimo, 2); assert.equal(r.faltan, 0);
   assert.match(P.mensajeMotivacional({ racha: 1, diasSemanaActual: 2, minimo: 2, faltan: 0 }), /Semana completa/);
+});
+
+test('limpiarRespuesta, si hay demasiados datos, conserva los más nuevos', () => {
+  const dias = [];
+  for (let s = 1; s <= 500; s++) dias.push({ semana: s, dia: 1, hecho: true });
+  const r = P.limpiarRespuesta({ dias });
+  assert.equal(r.dias.length, 400);
+  assert.equal(r.dias[r.dias.length - 1].semana, 500, 'la semana más nueva sigue estando');
+  assert.equal(r.dias[0].semana, 101);
+});
+
+test('analizarDias ignora las semanas creadas por adelantado (sin ningún día tildado)', () => {
+  const sem = (semana, ...hechos) => hechos.map((hecho, i) => ({ semana, dia: i + 1, hecho }));
+  const dias = [...sem(1, true, true, true), ...sem(2, true, true, true), ...sem(3, true, true, false),
+    ...sem(4, false, false, false), ...sem(5, false, false, false), ...sem(6, false, false, false)]; // 4, 5 y 6 todavía no existen para la alumna
+  const r = P.analizarDias(dias, { diasEstaSemana: 2 });
+  assert.equal(r.tira[r.tira.length - 1].semana, 3, 'la semana en curso es la 3, con el día 3 pendiente');
+  assert.equal(r.tira[r.tira.length - 1].enCurso, true);
+  assert.ok(r.tira.every(t => t.semana <= 3), 'las futuras no figuran');
+  assert.equal(r.porDia.reduce((a, c) => a + c.planificados, 0), 6, 'las semanas 1 y 2 cuentan; la 3 (en curso) no, y las futuras tampoco');
+});
+
+test('analizarDias: un lunes (nada tildado esta semana en el calendario) la semana en curso es la siguiente a la última con tildes', () => {
+  const sem = (semana, ...hechos) => hechos.map((hecho, i) => ({ semana, dia: i + 1, hecho }));
+  const dias = [...sem(1, true, true), ...sem(2, true, true), ...sem(3, true, false), ...sem(4, false, false), ...sem(5, false, false)];
+  const lunes = P.analizarDias(dias, { diasEstaSemana: 0 });
+  assert.equal(lunes.tira[lunes.tira.length - 1].semana, 4, 'la 3 quedó cerrada (con una falta) y la 4 es la nueva; la 5 es futura');
+  const miercoles = P.analizarDias(dias, { diasEstaSemana: 1 });
+  assert.equal(miercoles.tira[miercoles.tira.length - 1].semana, 3, 'con un día tildado esta semana, la 3 sigue en curso: su día pendiente no es falta todavía');
+  assert.equal(P.analizarDias(dias).tira[P.analizarDias(dias).tira.length - 1].semana, 4, 'sin calendario se asume que arrancó la siguiente');
+});
+
+test('analizarDias: sin ningún tilde en ninguna semana, la última es la que está en curso (como antes)', () => {
+  const r = P.analizarDias([{ semana: 1, dia: 1, hecho: false }, { semana: 2, dia: 1, hecho: false }]);
+  assert.equal(r.tira[r.tira.length - 1].semana, 2);
+});
+
+test('diasPorSemana agrupa por lunes y no cuenta dos veces el mismo día', () => {
+  const m = P.diasPorSemana(['2026-10-12', '2026-10-12', '2026-10-14', '2026-10-19']);
+  assert.deepEqual([...m.entries()], [['2026-10-12', 2], ['2026-10-19', 1]]);
 });

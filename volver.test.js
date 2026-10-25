@@ -21,7 +21,7 @@ function ventanaFalsa({ clave, ruta = '/P-gina-web-/turnos.html', falla = false 
     creados, body,
     localStorage: { getItem: k => { if (falla) throw new Error('bloqueado'); return k === 'pr-clave' ? clave : null; } },
     location: { pathname: ruta },
-    document: { body, createElement: () => ({ setAttribute() {} }) },
+    document: { body, createElement: () => ({ attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } }) },
   };
 }
 
@@ -31,6 +31,9 @@ test('agrega el botón solo si hay una clave guardada', () => {
   assert.equal(con.creados.length, 1);
   assert.equal(con.creados[0].href, `progreso.html?c=${CLAVE}`);
   assert.equal(con.body.clase, 'con-volver-progreso');
+  assert.equal(con.creados[0].className, 'volver-progreso');
+  assert.equal(con.creados[0].rel, 'noopener');
+  assert.equal(con.creados[0].attrs['aria-label'], 'Volver a mi progreso');
 
   const sin = ventanaFalsa({ clave: null });
   V.iniciar(sin);

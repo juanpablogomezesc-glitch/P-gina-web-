@@ -36,6 +36,7 @@ const COL_ = { tilde: 2, ejercicio: 3, series: 6, reps: 7, kg0: 8, kgN: 10 };
 
 const limpiarNombre_ = t => String(t).replace(/\s+/g, ' ').trim();
 const numero_ = v => (typeof v === 'number' && isFinite(v) ? v : null);
+// COPIA de clave en progreso/calculos.js: tienen que dar siempre lo mismo (lo comprueba una prueba).
 const claveNombre_ = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
 /**

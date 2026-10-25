@@ -614,3 +614,12 @@ test('la respuesta guardada por 5 minutos sale igual que la recién leída', () 
   const segunda = get({ accion: 'progreso', clave: CLAVE_A });
   assert.deepEqual(segunda, primera);
 });
+
+// ---- contrato: Central.gs y calculos.js comparan nombres de ejercicio igual ----
+test('claveNombre_ (script) y clave (página) normalizan los nombres exactamente igual', () => {
+  const calculos = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'progreso', 'calculos.js'), 'utf8');
+  const claveWeb = new Function('return ' + /const clave = (t => [^\n]+);/.exec(calculos)[1])();
+  const claveScript = new Function('return ' + /const claveNombre_ = (t => [^\n]+);/.exec(CODIGO)[1])();
+  const nombres = ['Sentadilla C/B', '  sentadilla   c/b ', 'SENTADILLA C/B', 'Prensa 45º', 'Peso Muerto Rumano C/M ', 'Dominadas Pronas', 'Remo Polea Baja Neutra', 'Abdominales con Disco Arriba', 'Hip Trust 1pp C/M', 'Sillón Cuadríceps', 'ÑANDÚ é ü', '', 'a\tb\nc'];
+  for (const n of nombres) assert.equal(claveWeb(n), claveScript(n), JSON.stringify(n));
+});
