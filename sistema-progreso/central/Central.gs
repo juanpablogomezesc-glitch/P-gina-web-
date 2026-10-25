@@ -29,10 +29,10 @@ const NO_SON_ALUMNOS = /dashboard|excercise|exercise|ejercicios|progreso|modelo|
 // Mensaje de WhatsApp para cada alumno (armarMensajes lo escribe en la columna G de "Alumnos"; la F es "Acceso enviado", del script de accesos por mail). {nombre} y {link} se completan solos.
 const MENSAJE_WHATSAPP = 'Hola {nombre}! Te paso tu link personal para ver tu progreso, tu rutina y sacar turnos: {link}\n\nGuardalo en tu celular: abrilo, tocá Compartir y elegí "Añadir a pantalla de inicio", así te queda como una app. Es solo tuyo, no lo compartas.';
 // Membresía: la planilla "A Finanzas Entrenamiento Personal" (una pestaña por mes: Fecha | Alumno | Servicio | Monto). Solo se lee.
-// Cada pago cubre DIAS_MEMBRESIA días. A los alumnos cuya planilla esté en la subcarpeta CARPETA_NO_ABONAN (dentro de la carpeta de alumnos)
+// Cada pago cubre DIAS_MEMBRESIA días. A los alumnos cuya planilla esté en la subcarpeta CARPETAS_NO_ABONAN (dentro de la carpeta de alumnos)
 // no se les muestra nada: no abonan. Al dashboard solo llega la fecha de vencimiento, nunca los montos.
 const FINANZAS_ID = '1wQKjfoI9KglNirjvoeCuVIzbYB01d5u4RSoBthHcGFM';
-const CARPETA_NO_ABONAN = 'Alumnos que no abonan';
+const CARPETAS_NO_ABONAN = ['Alumnos becados', 'Alumnos que no abonan']; // nombres válidos de esa subcarpeta (da igual mayúsculas y tildes)
 const DIAS_MEMBRESIA = 30;
 const SEGUNDOS_PAGOS = 1800;         // los pagos y la lista de quienes no abonan se releen cada 30 minutos
 const LINK_PARA_MEDIR = '';          // solo para medirTiempos: el link de la planilla que querés medir
@@ -553,18 +553,22 @@ function leerPagos_(forzar) {
   }
 }
 
-/** IDs de las planillas que están en la subcarpeta de quienes no abonan. Se guarda 30 minutos. */
+/** IDs de las planillas que están en la subcarpeta de quienes no abonan (la que se llame como alguno de CARPETAS_NO_ABONAN). Se guarda 30 minutos. */
 function idsNoAbonan_(forzar) {
   const guardado = forzar ? null : memoriaLeer_('noabonan');
   if (guardado) return guardado;
   try {
     const ids = [];
-    const subs = DriveApp.getFolderById(CARPETA_ALUMNOS_ID).getFoldersByName(CARPETA_NO_ABONAN);
-    while (subs.hasNext()) planillasEnCarpeta_(subs.next()).forEach(x => ids.push(x.id));
+    const validos = CARPETAS_NO_ABONAN.map(claveNombre_);
+    const subs = DriveApp.getFolderById(CARPETA_ALUMNOS_ID).getFolders();
+    while (subs.hasNext()) {
+      const sub = subs.next();
+      if (validos.indexOf(claveNombre_(sub.getName())) >= 0) planillasEnCarpeta_(sub).forEach(x => ids.push(x.id));
+    }
     memoriaGuardar_('noabonan', ids, SEGUNDOS_PAGOS);
     return ids;
   } catch (err) {
-    Logger.log(`No se pudo leer la carpeta "${CARPETA_NO_ABONAN}": ${err}`);
+    Logger.log(`No se pudo leer la subcarpeta de quienes no abonan: ${err}`);
     return [];
   }
 }
@@ -578,6 +582,31 @@ function membresiaDe_(nombre, idPlanilla, pagos, noAbonan) {
 
 /** Palabras de un nombre sin tildes ni mayúsculas, para sugerir parecidos. */
 const palabras_ = t => claveNombre_(t).split(' ').filter(Boolean);
+
+/** Cuántas letras hay que cambiar, sumar o sacar para pasar de un texto al otro ("fabricio" → "fabriccio" = 1). */
+function distancia_(a, b) {
+  const fila = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let anterior = fila[0];
+    fila[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const guardado = fila[j];
+      fila[j] = Math.min(fila[j] + 1, fila[j - 1] + 1, anterior + (a[i - 1] === b[j - 1] ? 0 : 1));
+      anterior = guardado;
+    }
+  }
+  return fila[b.length];
+}
+
+/** Nombres de finanzas que se parecen a `nombre`: les falta o sobra alguna palabra, o tienen un error de tipeo de hasta 2 letras. */
+function nombresParecidos_(nombre, pagos) {
+  const mias = palabras_(nombre), mio = mias.join(' ');
+  return Object.keys(pagos).filter(k => {
+    const p = palabras_(k);
+    const incluido = mias.length > 0 && (mias.every(w => p.indexOf(w) >= 0) || p.every(w => mias.indexOf(w) >= 0));
+    return incluido || distancia_(mio, p.join(' ')) <= 2;
+  });
+}
 
 /**
  * Para vos: revisa a todos los alumnos de la pestaña "Alumnos" y muestra (Ver > Registros de ejecución) quiénes están al día, por vencer
@@ -595,8 +624,7 @@ function controlarPagos(hoyTexto) {
     if (noAbonan.indexOf(a.planilla) >= 0) { exentos.push(a.nombre); return; }
     const m = membresiaDe_(a.nombre, a.planilla, pagos, noAbonan);
     if (!m) {
-      const mias = palabras_(a.nombre);
-      const parecidos = Object.keys(pagos).filter(k => { const p = palabras_(k); return mias.length && mias.every(w => p.indexOf(w) >= 0) || p.every(w => mias.indexOf(w) >= 0); });
+      const parecidos = nombresParecidos_(a.nombre, pagos);
       sinPago.push(a.nombre + (parecidos.length ? ` (¿será "${parecidos.slice(0, 2).join('" o "')}" en finanzas?)` : ''));
       return;
     }

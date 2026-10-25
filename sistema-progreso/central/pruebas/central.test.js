@@ -73,7 +73,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = 
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) && !(vence.get(k) <= reloj.t) ? celdasCache.get(k) : null), put: (k, v, seg) => { celdasCache.set(k, v); vence.set(k, reloj.t + seg * 1000); } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, nombreDePila_, armarMensajes, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, fechaDePago_, sumarPagos_, membresiaDe_, controlarPagos, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, nombreDePila_, armarMensajes, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, fechaDePago_, sumarPagos_, membresiaDe_, controlarPagos, distancia_, nombresParecidos_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, reloj, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -787,4 +787,29 @@ test('controlarPagos separa al día, por vencer, vencidos, los que no abonan y l
   assert.match(t, /VENCIDOS \(1\): Cora Díaz \(venció hace 13 días\)/, 'Cora pagó el 01/09: venció el 01/10');
   assert.match(t, /NO ABONAN.*\(1\): Nico Exento/);
   assert.match(t, /SIN PAGO ENCONTRADO \(2\).*Beto Pérez \(¿será "beto luis perez" en finanzas\?\).*Dora Sin Pago/, 'sugiere el parecido');
+});
+
+test('la subcarpeta de quienes no abonan puede llamarse "Alumnos becados" o "Alumnos que no abonan", sin importar mayúsculas ni tildes', () => {
+  const fin = finanzas([['02/10/26', 'Ana', 'PE', '1'], ['03/10/26', 'Beto', 'PL', '1']]);
+  for (const nombre of ['Alumnos becados', 'alumnos BECADOS', 'Alumnos que no abonan', ' Alumnos  Becados ']) {
+    const drive = { carpetas: [{ nombre, archivos: [{ id: ID_B, titulo: 'Beto' }] }] };
+    const { get } = entorno({ alumnos, drive, planillas: { ...planillas, [ID_FINANZAS]: fin } });
+    assert.equal(get({ accion: 'progreso', clave: CLAVE_B }).membresia, null, nombre);
+    assert.deepEqual(get({ accion: 'progreso', clave: CLAVE_A }).membresia, { vence: '2026-11-01' }, nombre);
+  }
+  const drive = { carpetas: [{ nombre: 'Alumnos viejos', archivos: [{ id: ID_B, titulo: 'Beto' }] }] };
+  const { get } = entorno({ alumnos, drive, planillas: { ...planillas, [ID_FINANZAS]: fin } });
+  assert.notEqual(get({ accion: 'progreso', clave: CLAVE_B }).membresia, null, 'una carpeta con otro nombre no cuenta');
+});
+
+test('los nombres parecidos de finanzas incluyen errores de tipeo (una letra de más o de menos) y nombres incompletos', () => {
+  const { api } = entorno();
+  const pagos = { 'fabriccio bonetti': '2026-10-13', 'marinela coggiola': '2026-10-19', 'mike zacarias': '2026-10-10', 'dana fischer': '2026-10-23', 'ana gomez': '2026-10-01' };
+  assert.equal(api.distancia_('fabricio', 'fabriccio'), 1);
+  assert.equal(api.distancia_('', 'abc'), 3);
+  assert.deepEqual(Array.from(api.nombresParecidos_('Fabricio Bonetti', pagos)), ['fabriccio bonetti']);
+  assert.deepEqual(Array.from(api.nombresParecidos_('Marianela Coggiolla', pagos)), ['marinela coggiola']);
+  assert.deepEqual(Array.from(api.nombresParecidos_('Mike Sacarías', pagos)), ['mike zacarias']);
+  assert.deepEqual(Array.from(api.nombresParecidos_('Dana', pagos)), ['dana fischer'], 'nombre incompleto');
+  assert.deepEqual(Array.from(api.nombresParecidos_('Otra Persona', pagos)), []);
 });
