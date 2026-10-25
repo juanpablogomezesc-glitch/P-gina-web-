@@ -35,6 +35,10 @@ const semana = (n, filas, encabezado = ENCABEZADO_NUEVO, opciones) => hoja(`Sema
 
 function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
   const celdasCache = new Map();
+  const vence = new Map();
+  const reloj = { t: Date.now() };
+  const FechaReal = Date;
+  class RelojFalso extends FechaReal { constructor(...a) { if (a.length) super(...a); else super(reloj.t); } static now() { return reloj.t; } static [Symbol.hasInstance](x) { return x instanceof FechaReal; } }
   const filasAlumnos = [['Nombre', 'Email', 'Planilla (link o ID)', 'Clave', 'Link'], ...alumnos];
   const avisos = [];
   const lecturasAlumnos = { n: 0 };
@@ -51,17 +55,17 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
   const ss = { getSheetByName: n => (n === 'Alumnos' ? hojaAlumnos : null), toast: t => avisos.push(t) };
   const lecturas = { n: 0 };
   const ctx = vm.createContext({
-    Date, Math, Error, JSON, Map, Set, Logger: { log() {} },
+    Date: RelojFalso, Math, Error, JSON, Map, Set, Logger: { log() {} },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ss,
       openById: id => { if (id !== ID_CATALOGO) lecturas.n++; if (!planillas[id]) throw new Error('sin acceso'); return planillas[id]; },
     },
-    CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) ? celdasCache.get(k) : null), put: (k, v) => celdasCache.set(k, v) }) },
+    CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) && !(vence.get(k) <= reloj.t) ? celdasCache.get(k) : null), put: (k, v, seg) => { celdasCache.set(k, v); vence.set(k, reloj.t + seg * 1000); } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, leerCatalogo_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, leerCatalogo_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
-  return { api: ctx.__api, get, lecturas, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
+  return { api: ctx.__api, get, lecturas, reloj, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
 
 // ---- lectura de pestañas ----
@@ -346,7 +350,7 @@ test('medirTiempos informa cada paso y el total, y pide una planilla si falta', 
   const { api } = entorno({ planillas: { [ID_A]: planilla([semana(1, [fila('Sentadilla C/B', 1, 5, 60)]), calendarioControlMensual('Control Mensual')]) } });
   const lineas = api.medirTiempos(ID_A);
   const texto = Array.from(lineas).join('\n');
-  for (const paso of ['Abrir la planilla', 'Listar las pestañas', 'Leer el nombre de 2 pestañas', 'Lectura completa', 'Series leídas: 1 · días tildados: 4', 'TOTAL']) assert.ok(texto.includes(paso), paso);
+  for (const paso of ['Abrir la planilla', 'Listar las pestañas', 'Leer el nombre de 2 pestañas', 'Lectura completa', 'Series leídas: 1 · días tildados en el calendario: 4', 'Ocupa en memoria', 'TOTAL']) assert.ok(texto.includes(paso), paso);
   assert.throws(() => api.medirTiempos(''), /Pegá el link/);
 });
 
@@ -535,4 +539,78 @@ test('la respuesta del dashboard no trae los pesos de los días sin tildar', () 
   const planillaAlumna = planilla([hoja('Semana 58', [ENCABEZADO_NUEVO, conTilde(true, 'DÍA 1'), fila('Sentadilla C/B', 1, 5, 100), conTilde(false, 'DÍA 2'), fila('Press Plano C/B', 1, 5, 80)])]);
   const { get } = entorno({ alumnos, planillas: { ...planillas, [ID_A]: planillaAlumna } });
   assert.deepEqual(get({ accion: 'progreso', clave: CLAVE_A }).series.map(s => s.ejercicio), ['Sentadilla C/B']);
+});
+
+// ---- memoria: el historial vence a las 6 horas de armado (no se renueva con cada visita) y no se guarda si quedó incompleto ----
+test('una semana futura creada por adelantado (vacía) no hace que la semana en curso se guarde como cerrada', () => {
+  const { api } = entorno();
+  const hojas = [];
+  for (let n = 1; n <= 10; n++) hojas.push(semana(n, [fila('Sentadilla C/B', 1, 5, 50 + n)]));
+  for (let n = 11; n <= 15; n++) hojas.push(semana(n, [])); // cinco semanas futuras, todavía vacías
+  const r = api.leerPlanilla_(planilla(hojas), []);
+  assert.equal(r.historia.hasta, 7, 'cuenta desde la última semana con actividad (10), no desde la pestaña más nueva (15)');
+  assert.equal(r.semanaActual.n, 15, 'el botón Mi rutina sigue apuntando a la pestaña más nueva');
+});
+
+test('si la lectura se corta por un encabezado roto en una semana reciente, el historial incompleto no se guarda', () => {
+  const { api } = entorno();
+  const roto = hoja('Semana 9', [['', '', '', 'algo roto'], ['', '', '', 'DÍA 1 '], fila('Sentadilla C/B', 1, 5, 99)]);
+  const hojas = [roto];
+  for (let n = 1; n <= 8; n++) hojas.push(semana(n, [fila('Sentadilla C/B', 1, 5, 50 + n)]));
+  hojas.push(semana(10, [fila('Sentadilla C/B', 1, 5, 110)]), semana(11, [fila('Sentadilla C/B', 1, 5, 111)]), semana(12, [fila('Sentadilla C/B', 1, 5, 112)]));
+  const r = api.leerPlanilla_(planilla(hojas), []);
+  assert.equal(r.historia, null, 'la semana 9 está dentro de lo reciente y no se pudo leer: no se guarda');
+  assert.deepEqual(Array.from(r.series, s => s.semana), [10, 11, 12]);
+});
+
+test('si el formato viejo está lejos en el pasado, el historial sí se guarda', () => {
+  const { api } = entorno();
+  const hojas = [semana(1, [fila('Sentadilla C/B', 1, 5, 40)], ENCABEZADO_VIEJO)];
+  for (let n = 2; n <= 12; n++) hojas.push(semana(n, [fila('Sentadilla C/B', 1, 5, 50 + n)]));
+  const r = api.leerPlanilla_(planilla(hojas), []);
+  assert.ok(r.historia && r.historia.hasta === 9);
+});
+
+test('empaquetar y desempaquetar devuelven lo mismo y ocupan unas 5 veces menos', () => {
+  const { api } = entorno();
+  const series = [], dias = [];
+  for (let w = 1; w <= 60; w++) for (let e = 0; e < 25; e++) series.push({ semana: w, ejercicio: `Ejercicio número ${e} C/B`, kg: 20 + e + w / 2, reps: 5 + (e % 4) });
+  for (let w = 1; w <= 60; w++) for (let d = 1; d <= 4; d++) dias.push({ semana: w, dia: d, hecho: d !== 4 });
+  const paq = api.empaquetar_(series, dias);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.desempaquetar_(paq))), { series, dias });
+  const antes = JSON.stringify({ series, dias }).length, despues = JSON.stringify(paq).length;
+  assert.ok(despues * 3 < antes, `${antes} → ${despues}`);
+  assert.ok(despues < 100 * 1024, 'un alumno con 60 semanas y 25 ejercicios entra en los 100 KB de Google');
+});
+
+test('el historial guardado no se renueva con cada visita: una corrección en una semana vieja llega al alumno en 6 horas como máximo', () => {
+  const hojas = [];
+  for (let n = 1; n <= 10; n++) hojas.push(semana(n, [fila('Sentadilla C/B', 1, 5, 50 + n)]));
+  const { get, reloj } = entorno({ alumnos, planillas: { ...planillas, [ID_A]: planilla(hojas) } });
+  const kgSemana2 = () => get({ accion: 'progreso', clave: CLAVE_A, fresco: '1' }).series.find(x => x.semana === 2).kg;
+  assert.equal(kgSemana2(), 52);
+  // se corrige la semana 2 en la planilla (el fake lee las filas de la hoja cada vez)
+  hojas.find(h => h.getName() === 'Semana 2').getRange(1, 1, 5, 14).getValues; // la hoja existe
+  const corregida = semana(2, [fila('Sentadilla C/B', 1, 5, 99)]);
+  hojas[hojas.findIndex(h => h.getName() === 'Semana 2')] = corregida;
+  for (const horas of [1, 2, 3, 4, 5]) { reloj.t += 3600 * 1000; assert.equal(kgSemana2(), 52, `a las ${horas} h sigue el valor guardado`); } // visitas seguidas no renuevan el historial
+  reloj.t += 3600 * 1000 + 1000; // pasaron más de 6 horas desde que se armó
+  assert.equal(kgSemana2(), 99, 'después de 6 horas se relee todo');
+});
+
+test('lo que cambia en las semanas recientes llega enseguida, aunque el historial esté guardado', () => {
+  const hojas = [];
+  for (let n = 1; n <= 10; n++) hojas.push(semana(n, [fila('Sentadilla C/B', 1, 5, 50 + n)]));
+  const { get, reloj } = entorno({ alumnos, planillas: { ...planillas, [ID_A]: planilla(hojas) } });
+  get({ accion: 'progreso', clave: CLAVE_A });
+  hojas[9] = semana(10, [fila('Sentadilla C/B', 1, 5, 200)]);
+  reloj.t += 40 * 1000;
+  assert.equal(get({ accion: 'progreso', clave: CLAVE_A, fresco: '1' }).series.find(x => x.semana === 10).kg, 200);
+});
+
+test('la respuesta guardada por 5 minutos sale igual que la recién leída', () => {
+  const { get } = entorno({ alumnos, planillas });
+  const primera = get({ accion: 'progreso', clave: CLAVE_A });
+  const segunda = get({ accion: 'progreso', clave: CLAVE_A });
+  assert.deepEqual(segunda, primera);
 });

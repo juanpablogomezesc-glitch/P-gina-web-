@@ -22,6 +22,7 @@ const SEMANAS_MAXIMO = 200;          // tope de pestañas "Semana N" que se leen
 const SEGUNDOS_EN_MEMORIA = 300;     // una consulta repetida en 5 minutos no vuelve a leer la planilla
 const SEGUNDOS_MINIMOS_ENTRE_LECTURAS = 30; // el botón "Actualizar" de la página no lee la planilla más de una vez cada 30 segundos
 const SEGUNDOS_LISTA_ALUMNOS = 60;   // la lista de alumnos se lee de la planilla a lo sumo una vez por minuto (también es lo que tarda en valer una clave borrada)
+const LINK_PARA_MEDIR = '';          // solo para medirTiempos: el link de la planilla que querés medir
 // ======================
 
 const HOJA_ALUMNOS = 'Alumnos';
@@ -163,62 +164,95 @@ function objetivosMensuales_(valores) {
 /** Las pestañas con el calendario de tildes: "Control Mensual" (la que usan los alumnos) o "Asistencia AAAA". No cuenta "Control Mensual (anterior)". */
 const esHojaAsistencia_ = nombre => /^\s*(Control Mensual|Asistencia\s+\d{4})\s*$/i.test(String(nombre));
 
-/**
- * Devuelve { series, categorias, asistencia, objetivos, dias, semanaActual, historia } de una planilla abierta. dias = tildes de día por semana. `catalogo` es la lista de armarCatalogo_.
- * `previo` (opcional) es la `historia` de una lectura anterior: { hasta, series, dias }. Las semanas hasta ese número no se vuelven a leer de la planilla.
- * Los pesos de un "DÍA n" solo cuentan cuando la casilla de ese día está tildada; los días sin casilla (semanas viejas) cuentan siempre.
- */
-function leerPlanilla_(ss, catalogo, previo) {
-  const hojas = ss.getSheets();
+/** Separa las pestañas de una planilla: "Semana N" (de la más nueva a la más vieja) y las del calendario de asistencia. */
+function clasificarHojas_(ss) {
   const semanas = [], asistencias = [];
-  hojas.forEach(h => {
+  ss.getSheets().forEach(h => {
     const nombre = h.getName();
     const m = /^Semana\s+(\d+)\s*$/i.exec(nombre);
     if (m) semanas.push({ n: +m[1], hoja: h });
     else if (esHojaAsistencia_(nombre)) asistencias.push(h);
   });
-  semanas.sort((a, b) => b.n - a.n); // de la más nueva a la más vieja
-  const semanaActual = semanas.length ? { n: semanas[0].n, gid: gidVisible_(semanas[0].hoja) } : null;
+  semanas.sort((a, b) => b.n - a.n);
+  return { semanas, asistencias };
+}
 
-  // Todos los ejercicios con peso. Si está en el catálogo se usa su nombre y su categoría; si no, queda tal cual lo escribiste en la planilla.
-  const porClave = new Map();
-  (catalogo || []).forEach(x => { if (!porClave.has(claveNombre_(x.nombre))) porClave.set(claveNombre_(x.nombre), x); });
-  const hasta = semanas.length ? Math.max(0, semanas[0].n - SEMANAS_RECIENTES) : 0; // hasta acá las semanas ya están cerradas
-  const usable = previo && Number.isInteger(previo.hasta) && previo.hasta > 0 && previo.hasta <= hasta && Array.isArray(previo.series) && Array.isArray(previo.dias); // una historia guardada antes de los tildes no sirve: se relee
-  const corte = usable ? previo.hasta : 0; // lo que ya está en `previo` no se lee de nuevo
-  const series = usable ? previo.series.slice() : [], vistas = new Set();
-  const dias = usable ? previo.dias.slice() : [];
+/** Un historial guardado sirve solo si tiene la forma esperada y es de una semana anterior a la más nueva; si no, se lee todo de nuevo. */
+function historiaUsable_(previo, semanas) {
+  const ok = previo && Number.isInteger(previo.hasta) && previo.hasta > 0 && semanas.length && previo.hasta < semanas[0].n &&
+    Array.isArray(previo.series) && Array.isArray(previo.dias);
+  return ok ? previo : null;
+}
+
+/**
+ * Lee las pestañas "Semana N" desde la más nueva hacia atrás, hasta `corte` (esas ya están guardadas). Suma a `series` y `dias`.
+ * Todos los ejercicios con peso; si el ejercicio está en el catálogo se usa su nombre. Los pesos de un "DÍA n" solo cuentan cuando
+ * la casilla de ese día está tildada; los días sin casilla (semanas viejas) cuentan siempre.
+ * Devuelve el número de la pestaña donde la lectura se cortó por tener el formato viejo (o 0 si no se cortó).
+ */
+function leerSemanas_(semanas, corte, porClave, series, dias) {
+  const vistas = new Set(series.map(x => `${x.semana}|${claveNombre_(x.ejercicio)}|${x.kg}|${x.reps}`));
   for (const s of semanas.slice(0, SEMANAS_MAXIMO)) {
     if (s.n <= corte) break; // las semanas más viejas ya vienen guardadas
     const filas = s.hoja.getRange(1, 1, Math.min(s.hoja.getMaxRows(), 80), 14).getValues();
-    if (!esFormatoNuevo_(filas)) break; // desde acá para atrás son pestañas con el formato viejo
+    if (!esFormatoNuevo_(filas)) return s.n; // desde acá para atrás son pestañas con el formato viejo
     const tildes = leerDiasTildados_(filas);
     tildes.forEach(x => dias.push({ semana: s.n, dia: x.dia, hecho: x.hecho }));
     const hecho = new Map(tildes.map(x => [x.dia, x.hecho]));
     leerSemana_(filas).forEach(x => {
       if (hecho.get(x.dia) === false) return; // el día tiene casilla y todavía no está tildado: lo que se cargó ahí no cuenta (ni como récord)
       const k = claveNombre_(x.ejercicio);
-      const enCatalogo = porClave.get(k);
-      const nombre = enCatalogo ? enCatalogo.nombre : x.ejercicio;
       const marca = `${s.n}|${k}|${x.kg}|${x.reps}`;
       if (vistas.has(marca)) return; // series repetidas (3 × 5 con 80 kg) valen una sola vez: para los gráficos da igual y pesa menos
       vistas.add(marca);
-      series.push({ semana: s.n, ejercicio: nombre, kg: x.kg, reps: x.reps });
+      const enCatalogo = porClave.get(k);
+      series.push({ semana: s.n, ejercicio: enCatalogo ? enCatalogo.nombre : x.ejercicio, kg: x.kg, reps: x.reps });
     });
   }
+  return 0;
+}
+
+/** Fechas tildadas y objetivos mensuales de las pestañas del calendario. */
+function leerAsistencia_(hojas) {
+  let asistencia = [];
+  const objetivos = {};
+  hojas.forEach(h => {
+    const valores = h.getRange(1, 1, h.getMaxRows(), 9).getValues();
+    asistencia = asistencia.concat(fechasMarcadas_(valores));
+    Object.assign(objetivos, objetivosMensuales_(valores));
+  });
+  return { asistencia: asistencia.sort(), objetivos };
+}
+
+/**
+ * Devuelve { series, categorias, asistencia, objetivos, dias, semanaActual, historia } de una planilla abierta. dias = tildes de día por semana.
+ * `catalogo` es la lista de armarCatalogo_. `previo` (opcional) es la `historia` de una lectura anterior: { hasta, series, dias }; esas semanas no se releen.
+ * `historia` es lo que conviene guardar para la próxima vez (las semanas ya cerradas), o null si la lectura quedó incompleta y no hay que guardarla.
+ * Una semana "cerrada" es una que quedó 3 o más semanas atrás de la última con actividad (pesos o tildes): así una semana de la rutina
+ * creada por adelantado y todavía vacía no hace que se guarde como cerrada la semana que está en curso.
+ */
+function leerPlanilla_(ss, catalogo, previo) {
+  const { semanas, asistencias } = clasificarHojas_(ss);
+  const semanaActual = semanas.length ? { n: semanas[0].n, gid: gidVisible_(semanas[0].hoja) } : null;
+  const porClave = new Map();
+  (catalogo || []).forEach(x => { if (!porClave.has(claveNombre_(x.nombre))) porClave.set(claveNombre_(x.nombre), x); });
+
+  const guardada = historiaUsable_(previo, semanas);
+  const series = guardada ? guardada.series.slice() : [];
+  const dias = guardada ? guardada.dias.slice() : [];
+  const cortadaEn = leerSemanas_(semanas, guardada ? guardada.hasta : 0, porClave, series, dias);
+
   const categorias = {};
   series.forEach(x => { const c = porClave.get(claveNombre_(x.ejercicio)); if (c) categorias[x.ejercicio] = c.categoria; });
   series.sort((a, b) => a.semana - b.semana);
   dias.sort((a, b) => a.semana - b.semana || a.dia - b.dia);
 
-  let asistencia = [], objetivos = {};
-  asistencias.forEach(h => {
-    const valores = h.getRange(1, 1, h.getMaxRows(), 9).getValues();
-    asistencia = asistencia.concat(fechasMarcadas_(valores));
-    Object.assign(objetivos, objetivosMensuales_(valores));
-  });
-  const historia = { hasta, series: series.filter(x => x.semana <= hasta), dias: dias.filter(x => x.semana <= hasta) };
-  return { series, categorias, asistencia: asistencia.sort(), objetivos, dias, semanaActual, historia };
+  const ultimaActiva = Math.max(0, ...series.map(x => x.semana), ...dias.map(x => x.semana));
+  const hasta = Math.max(0, ultimaActiva - SEMANAS_RECIENTES);
+  // Si la lectura se cortó en una semana reciente (por ejemplo, un encabezado roto), lo leído está incompleto: no se guarda.
+  // Un corte lejos en el pasado es normal: son las pestañas con el formato viejo.
+  const historia = cortadaEn > ultimaActiva - 2 * SEMANAS_RECIENTES ? null : { hasta, series: series.filter(x => x.semana <= hasta), dias: dias.filter(x => x.semana <= hasta) };
+  return { series, categorias, ...leerAsistencia_(asistencias), dias, semanaActual, historia };
 }
 
 /** Número de pestaña (gid) para abrir directo en ella; si la pestaña está oculta, Google no la muestra, así que no se usa. */
@@ -231,20 +265,46 @@ function urlRutina_(idPlanilla, gid) {
   return `https://docs.google.com/spreadsheets/d/${idPlanilla}/edit` + (Number.isInteger(gid) && gid >= 0 ? `#gid=${gid}` : '');
 }
 
+// ---------- Memoria (CacheService) ----------
+// Google guarda hasta 100 KB por valor. Todo lo que se guarda pasa por acá: si no entra o falla, simplemente no se guarda y se lee de nuevo.
+
+function memoriaLeer_(llave) {
+  try { const t = CacheService.getScriptCache().get(llave); return t ? JSON.parse(t) : null; } catch (err) { return null; }
+}
+
+function memoriaGuardar_(llave, valor, segundos) {
+  try { CacheService.getScriptCache().put(llave, JSON.stringify(valor), Math.max(1, Math.floor(segundos))); return true; } catch (err) { Logger.log(`No se pudo guardar en memoria (${llave}): ${err}`); return false; }
+}
+
+/** Las series ocupan unos 65 bytes cada una como objetos y unos 12 como listas: así entran 5 veces más datos en los 100 KB. */
+function empaquetar_(series, dias) {
+  const nombres = [], indice = new Map();
+  const s = series.map(x => {
+    if (!indice.has(x.ejercicio)) { indice.set(x.ejercicio, nombres.length); nombres.push(x.ejercicio); }
+    return [x.semana, indice.get(x.ejercicio), x.kg, x.reps];
+  });
+  return { n: nombres, s, d: dias.map(x => [x.semana, x.dia, x.hecho ? 1 : 0]) };
+}
+
+function desempaquetar_(paq) {
+  return {
+    series: paq.s.map(([semana, i, kg, reps]) => ({ semana, ejercicio: paq.n[i], kg, reps })),
+    dias: paq.d.map(([semana, dia, h]) => ({ semana, dia, hecho: h === 1 })),
+  };
+}
+
 /** El catálogo de ejercicios, de la planilla CATALOGO_ID. Se guarda 6 horas en memoria; si falla, devuelve [] y todo sigue andando. */
 function leerCatalogo_() {
   if (!CATALOGO_ID) return [];
-  const memoria = CacheService.getScriptCache();
+  const guardado = memoriaLeer_('catalogo');
+  if (guardado) return guardado;
   try {
-    const guardado = memoria.get('catalogo');
-    if (guardado) return JSON.parse(guardado);
-    const hoja = SpreadsheetApp.openById(CATALOGO_ID).getSheets()[0];
-    const lista = armarCatalogo_(hoja.getDataRange().getValues());
-    try { memoria.put('catalogo', JSON.stringify(lista), SEGUNDOS_CATALOGO); } catch (err) { /* sin memoria: se lee cada vez */ }
+    const lista = armarCatalogo_(SpreadsheetApp.openById(CATALOGO_ID).getSheets()[0].getDataRange().getValues());
+    memoriaGuardar_('catalogo', lista, SEGUNDOS_CATALOGO);
     return lista;
   } catch (err) {
     Logger.log(`No se pudo leer el catálogo de ejercicios: ${err}`);
-    try { memoria.put('catalogo', '[]', 300); } catch (e) { /* sin memoria: se reintenta */ } // si falla, no insiste en cada consulta
+    memoriaGuardar_('catalogo', [], 300); // si falla, no insiste en cada consulta
     return [];
   }
 }
@@ -316,12 +376,11 @@ function generarClaves() {
 
 /** Alumnos con clave y planilla válidas. Se guarda un minuto en memoria: así probar claves inventadas casi no cuesta nada. */
 function listaAlumnos_() {
-  const memoria = CacheService.getScriptCache();
-  const guardada = memoria.get('alumnos');
-  if (guardada) return JSON.parse(guardada);
+  const guardada = memoriaLeer_('alumnos');
+  if (guardada) return guardada;
   const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_ALUMNOS);
   const lista = hoja ? leerAlumnos_(hoja).filter(a => a.clave && a.planilla).map(a => ({ clave: a.clave, nombre: a.nombre, planilla: a.planilla })) : [];
-  try { memoria.put('alumnos', JSON.stringify(lista), SEGUNDOS_LISTA_ALUMNOS); } catch (err) { /* sin memoria: se lee cada vez */ }
+  memoriaGuardar_('alumnos', lista, SEGUNDOS_LISTA_ALUMNOS);
   return lista;
 }
 
@@ -334,14 +393,19 @@ function buscarAlumno_(clave) {
 
 const respuesta_ = obj => ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 
-/** Cuántos segundos pasaron desde que se leyó la planilla de esa respuesta guardada (si no se puede saber, se considera vieja). */
-function edadEnSegundos_(texto) {
-  try {
-    const t = Date.parse(JSON.parse(texto).actualizado);
-    return isFinite(t) ? Math.max(0, (Date.now() - t) / 1000) : Infinity;
-  } catch (err) { return Infinity; }
+/** Cuántos segundos pasaron desde que se leyó la planilla (`actualizado` es una fecha ISO; si no se puede saber, se considera vieja). */
+function edadEnSegundos_(actualizado) {
+  const t = Date.parse(actualizado);
+  return isFinite(t) ? Math.max(0, (Date.now() - t) / 1000) : Infinity;
 }
 
+const enviar_ = texto => ContentService.createTextOutput(texto).setMimeType(ContentService.MimeType.JSON);
+
+/**
+ * La respuesta de un alumno se guarda 5 minutos (`p_`). Además se guardan, por 6 horas contadas desde que se armaron (`h_`),
+ * las semanas ya cerradas: así "Actualizar" solo relee las últimas. El vencimiento no se renueva con cada visita: una corrección
+ * en una semana vieja de la planilla llega al alumno como máximo 6 horas después.
+ */
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.accion !== 'progreso') return respuesta_({ ok: false, error: 'Acción desconocida.' });
@@ -352,55 +416,46 @@ function doGet(e) {
   const alumno = /^[a-zA-Z0-9]{24}$/.test(clave) ? buscarAlumno_(clave) : null;
   if (!alumno) return respuesta_({ ok: false, error: 'El link no es válido. Pedile uno nuevo a tu entrenador.' });
 
-  const memoria = CacheService.getScriptCache();
-  const guardado = memoria.get('p_' + clave);
-  if (guardado && !(p.fresco === '1' && edadEnSegundos_(guardado) >= SEGUNDOS_MINIMOS_ENTRE_LECTURAS)) {
-    return ContentService.createTextOutput(guardado).setMimeType(ContentService.MimeType.JSON);
+  const guardada = memoriaLeer_('p_' + clave);
+  if (guardada && !(p.fresco === '1' && edadEnSegundos_(guardada.actualizado) >= SEGUNDOS_MINIMOS_ENTRE_LECTURAS)) {
+    const { paq, ...resto } = guardada;
+    return enviar_(JSON.stringify({ ...resto, ...desempaquetar_(paq) }));
   }
 
-  let datos;
   const llaveHistoria = `h_${clave}_${alumno.planilla}`;
-  let previo = null;
-  try { previo = JSON.parse(memoria.get(llaveHistoria)); } catch (err) { previo = null; }
+  const ahora = Date.now();
+  let historiaGuardada = memoriaLeer_(llaveHistoria);
+  if (!historiaGuardada || !(ahora - historiaGuardada.guardada < SEGUNDOS_HISTORIAL * 1000) || !historiaGuardada.paq) historiaGuardada = null;
+  let datos;
   try {
+    const previo = historiaGuardada && { hasta: historiaGuardada.hasta, ...desempaquetar_(historiaGuardada.paq) };
     datos = leerPlanilla_(SpreadsheetApp.openById(alumno.planilla), leerCatalogo_(), previo);
   } catch (err) {
     Logger.log(`No se pudo leer la planilla de ${alumno.nombre}: ${err}`);
     return respuesta_({ ok: false, error: 'No pude leer tu planilla. Avisale a tu entrenador.' });
   }
-  const { semanaActual, historia, ...resto } = datos;
-  try { memoria.put(llaveHistoria, JSON.stringify(historia), SEGUNDOS_HISTORIAL); } catch (err) { /* si es muy grande, simplemente no se guarda */ }
-  const texto = JSON.stringify({
+  const { semanaActual, historia, series, dias, ...resto } = datos;
+  if (historia) {
+    const desde = historiaGuardada ? historiaGuardada.guardada : ahora; // el vencimiento cuenta desde que se armó el historial, no desde la última visita
+    memoriaGuardar_(llaveHistoria, { hasta: historia.hasta, guardada: desde, paq: empaquetar_(historia.series, historia.dias) }, SEGUNDOS_HISTORIAL - (ahora - desde) / 1000);
+  }
+  const respuestaAlumno = {
     ok: true, nombre: alumno.nombre, actualizado: new Date().toISOString(), ...resto,
     rutina: urlRutina_(alumno.planilla, semanaActual && semanaActual.gid), // el botón "Mi rutina": la planilla de ESTE alumno, nada más
     rutinaSemana: semanaActual ? semanaActual.n : null,
-  });
-  try { memoria.put('p_' + clave, texto, SEGUNDOS_EN_MEMORIA); } catch (err) { /* si es muy grande, simplemente no se guarda */ }
-  return ContentService.createTextOutput(texto).setMimeType(ContentService.MimeType.JSON);
-}
-
-/** Para comprobar con una planilla: pegá su link o ID abajo y ejecutá. El resultado queda en Ver > Registros de ejecución. */
-function probarLectura() {
-  const LINK_O_ID = ''; // <- pegá acá el link de la planilla a probar
-  const id = idDePlanilla_(LINK_O_ID);
-  if (!id) throw new Error('Pegá el link de una planilla en LINK_O_ID, dentro de probarLectura.');
-  const d = leerPlanilla_(SpreadsheetApp.openById(id), leerCatalogo_());
-  const porEj = {};
-  d.series.forEach(s => { porEj[s.ejercicio] = (porEj[s.ejercicio] || 0) + 1; });
-  Logger.log(`Series por ejercicio: ${JSON.stringify(porEj)}`);
-  Logger.log(`Semanas leídas: ${[...new Set(d.series.map(s => s.semana))].join(', ')}`);
-  Logger.log(`Días tildados: ${d.asistencia.length} · Objetivos: ${JSON.stringify(d.objetivos)}`);
+  };
+  memoriaGuardar_('p_' + clave, { ...respuestaAlumno, paq: empaquetar_(series, dias) }, SEGUNDOS_EN_MEMORIA);
+  return enviar_(JSON.stringify({ ...respuestaAlumno, series, dias }));
 }
 
 /**
- * Mide cuánto tarda cada paso al leer una planilla (la tuya o la de un alumno), para saber dónde se va el tiempo.
- * Pegá el link entre las comillas de abajo, ejecutá medirTiempos y mirá Ver > Registros de ejecución.
+ * Mide cuánto tarda cada paso al leer una planilla (la tuya o la de un alumno), para saber dónde se va el tiempo,
+ * y cuánto ocupa lo que se guarda en memoria (el límite de Google es 100 KB por valor).
+ * Pegá el link en LINK_PARA_MEDIR (arriba, en OPCIONES), ejecutá medirTiempos y mirá Ver > Registros de ejecución.
  */
-const LINK_PARA_MEDIR = '';
-
 function medirTiempos(entrada) {
   const id = idDePlanilla_(entrada || LINK_PARA_MEDIR);
-  if (!id) throw new Error('Pegá el link de una planilla en LINK_PARA_MEDIR, arriba de la función medirTiempos.');
+  if (!id) throw new Error('Pegá el link de una planilla en LINK_PARA_MEDIR, arriba, en OPCIONES.');
   const lineas = [];
   const paso = (nombre, fn) => { const t = Date.now(); const r = fn(); lineas.push(`${nombre}: ${Date.now() - t} ms`); return r; };
   const inicio = Date.now();
@@ -408,7 +463,9 @@ function medirTiempos(entrada) {
   const hojas = paso('Listar las pestañas', () => ss.getSheets());
   paso(`Leer el nombre de ${hojas.length} pestañas`, () => hojas.map(h => h.getName()));
   const datos = paso('Lectura completa (lo que hace el dashboard)', () => leerPlanilla_(ss, leerCatalogo_()));
-  lineas.push(`Series leídas: ${datos.series.length} · días tildados: ${datos.asistencia.length}`);
+  lineas.push(`Series leídas: ${datos.series.length} · días tildados en el calendario: ${datos.asistencia.length}`);
+  const kb = valor => `${(JSON.stringify(valor).length / 1024).toFixed(1)} KB`;
+  lineas.push(`Ocupa en memoria: respuesta ${kb(empaquetar_(datos.series, datos.dias))}, historial ${datos.historia ? kb(empaquetar_(datos.historia.series, datos.historia.dias)) : 'no se guarda'} (límite 100 KB)`);
   lineas.push(`TOTAL: ${Date.now() - inicio} ms`);
   Logger.log(lineas.join('\n'));
   return lineas;
