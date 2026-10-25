@@ -27,7 +27,7 @@ const CARPETA_ALUMNOS_ID = '17lWIhOvGDypNwmQAnff6BNE4ufhtGeYQ';
 // Planillas de la carpeta que NO son de un alumno (por el nombre): se saltean. Agregá palabras si hace falta.
 const NO_SON_ALUMNOS = /dashboard|excercise|exercise|ejercicios|progreso|modelo|plantilla|copia de|^juan pablo g[oó]mez|catalogo|catálogo/i;
 // Mensaje de WhatsApp para cada alumno (armarMensajes lo escribe en la columna G de "Alumnos"; la F es "Acceso enviado", del script de accesos por mail). {nombre} y {link} se completan solos.
-const MENSAJE_WHATSAPP = 'Hola {nombre}! Te paso tu link personal para ver tu progreso, tu rutina y sacar turnos: {link}\n\nGuardalo en tu celular: abrilo, tocá Compartir y elegí "Añadir a pantalla de inicio", así te queda como una app. Es solo tuyo, no lo compartas.';
+const MENSAJE_WHATSAPP = 'Hola {nombre}! Ya tenés tu panel personal: ahí ves tu progreso en cada ejercicio, tus récords, tu rutina, tus turnos y el estado de tu membresía.\n\nEntrá desde acá: {link}\n\nGuardalo en el celular: abrilo, tocá Compartir y elegí "Añadir a pantalla de inicio", así te queda como una app. Es solo tuyo, no lo compartas.\n\nCualquier duda me escribís.';
 // Membresía: la planilla "A Finanzas Entrenamiento Personal" (una pestaña por mes: Fecha | Alumno | Servicio | Monto). Solo se lee.
 // Cada pago cubre DIAS_MEMBRESIA días. A los alumnos cuya planilla esté en la subcarpeta CARPETAS_NO_ABONAN (dentro de la carpeta de alumnos)
 // no se les muestra nada: no abonan. Al dashboard solo llega la fecha de vencimiento, nunca los montos.
