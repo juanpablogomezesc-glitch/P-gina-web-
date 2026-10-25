@@ -26,6 +26,8 @@ const hoja = (nombre, filas, { maxFilas, oculta = false } = {}) => ({
     }),
   }),
 });
+const HOY = '2026-10-14';
+const ID_FINANZAS = /FINANZAS_ID = '([^']+)'/.exec(CODIGO)[1];
 const ID_CATALOGO = /CATALOGO_ID = '([^']+)'/.exec(CODIGO)[1];
 const planilla = hojas => ({ getSheets: () => hojas });
 const fila = (nombre, ser, rep, ...kg) => ['', '', '', nombre, '', '', ser, rep, ...kg];
@@ -57,20 +59,21 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = 
   };
   const ss = { getSheetByName: n => (n === 'Alumnos' ? hojaAlumnos : null), toast: t => avisos.push(t), getId: () => 'idDeLaPlanillaDeProgresoXXXXXXXXXXXXX' };
   const iterador = lista => { let i = 0; return { hasNext: () => i < lista.length, next: () => lista[i++] }; };
-  const carpetaFalsa = c => ({ getName: () => c.nombre || 'Online', getFilesByType: () => iterador((c.archivos || []).map(a => ({ getId: () => a.id, getName: () => a.titulo }))), getFolders: () => iterador((c.carpetas || []).map(carpetaFalsa)) });
+  const carpetaFalsa = c => ({ getName: () => c.nombre || 'Online', getFilesByType: () => iterador((c.archivos || []).map(a => ({ getId: () => a.id, getName: () => a.titulo }))), getFolders: () => iterador((c.carpetas || []).map(carpetaFalsa)), getFoldersByName: n => iterador((c.carpetas || []).filter(x => x.nombre === n).map(carpetaFalsa)) });
   const lecturas = { n: 0 };
   const ctx = vm.createContext({
     Date: RelojFalso, Math, Error, JSON, Map, Set, Logger: { log() {} },
+    Utilities: { formatDate: () => HOY },
     DriveApp: { getFolderById: () => carpetaFalsa(drive || {}) },
     MimeType: { GOOGLE_SHEETS: 'sheet' },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ss,
-      openById: id => { if (id !== ID_CATALOGO) lecturas.n++; if (!planillas[id]) throw new Error('sin acceso'); return planillas[id]; },
+      openById: id => { if (id !== ID_CATALOGO && id !== ID_FINANZAS) lecturas.n++; if (!planillas[id]) throw new Error('sin acceso'); return planillas[id]; },
     },
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) && !(vence.get(k) <= reloj.t) ? celdasCache.get(k) : null), put: (k, v, seg) => { celdasCache.set(k, v); vence.set(k, reloj.t + seg * 1000); } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, nombreDePila_, armarMensajes, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, nombreDePila_, armarMensajes, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, fechaDePago_, sumarPagos_, membresiaDe_, controlarPagos, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, reloj, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -714,4 +717,74 @@ test('armarMensajes no pisa la columna F ("Acceso enviado") del script de mails'
   api.armarMensajes();
   assert.equal(filas[1][5], fecha, 'la fecha de envío sigue ahí');
   assert.match(filas[1][6], /^Hola Ana! /);
+});
+
+// ---- membresía ----
+const finanzas = (...pestanias) => planilla(pestanias.map((filas, i) => hoja(`Mes${i}`, [['Fecha ', 'Alumno ', 'Servicio ', 'Monto ', 'Total '], ...filas])));
+
+test('las fechas de los pagos se entienden en los formatos de la planilla', () => {
+  const { api } = entorno();
+  for (const [v, e] of [['02/10/26', '2026-10-02'], ['2/10/2026', '2026-10-02'], [' 31/12/25 ', '2025-12-31'], [new Date(2026, 9, 2), '2026-10-02'], ['30/02/26', ''], ['', ''], ['hola', ''], [null, ''], [5, ''], ['2026-10-02', '']])
+    assert.equal(api.fechaDePago_(v), e, String(v));
+});
+
+test('el último pago de cada nombre, juntando todas las pestañas, sin tildes ni mayúsculas ni espacios de más', () => {
+  const { api } = entorno();
+  const pagos = {};
+  api.sumarPagos_([['Fecha ', 'Alumno '], ['01/09/26', 'Dafne Coronel '], ['02/09/26', 'Maximiliano Chacón ']], pagos);
+  api.sumarPagos_([['01/10/26', ' dafne   CORONEL'], ['03/10/26', 'Karina González'], ['', 'Sin Fecha'], ['05/10/26', '']], pagos);
+  assert.deepEqual(JSON.parse(JSON.stringify(pagos)), { 'dafne coronel': '2026-10-01', 'maximiliano chacon': '2026-09-02', 'karina gonzalez': '2026-10-03' });
+});
+
+test('el vencimiento es el último pago más 30 días; sin pago o si no abona, null', () => {
+  const { api } = entorno();
+  const pagos = { 'dana montenegro': '2026-10-02' };
+  assert.deepEqual(JSON.parse(JSON.stringify(api.membresiaDe_('Dana  Montenegro', ID_A, pagos, []))), { vence: '2026-11-01' });
+  assert.equal(api.membresiaDe_('Beto Pérez', ID_B, pagos, []), null, 'sin ningún pago con su nombre no se muestra nada');
+  assert.equal(api.membresiaDe_('Dana Montenegro', ID_A, pagos, [ID_A]), null, 'en la subcarpeta de quienes no abonan');
+  assert.deepEqual(JSON.parse(JSON.stringify(api.membresiaDe_('Dana Montenegro', ID_B, { 'dana montenegro': '2026-12-15' }, [ID_A]))), { vence: '2027-01-14' }, 'cruza el cambio de año');
+});
+
+test('la respuesta del dashboard trae solo la fecha de vencimiento de ESE alumno, sin montos ni fechas de pago', () => {
+  const fin = finanzas([['02/10/26', 'Ana', 'PE', '60.000,00 €'], ['03/10/26', 'Beto', 'PL', '45.000,00 €']]);
+  const { get } = entorno({ alumnos, planillas: { ...planillas, [ID_FINANZAS]: fin } });
+  const a = get({ accion: 'progreso', clave: CLAVE_A });
+  assert.deepEqual(a.membresia, { vence: '2026-11-01' });
+  const b = get({ accion: 'progreso', clave: CLAVE_B });
+  assert.deepEqual(b.membresia, { vence: '2026-11-02' });
+  const texto = JSON.stringify(a);
+  assert.ok(!texto.includes('60.000') && !texto.includes('45.000') && !texto.includes('2026-10-02') && !texto.includes('Beto'), 'ni montos, ni la fecha de pago, ni nada de otro alumno');
+});
+
+test('quien está en la subcarpeta de los que no abonan no recibe membresía', () => {
+  const fin = finanzas([['02/10/26', 'Ana', 'PE', '60.000,00 €'], ['03/10/26', 'Beto', 'PL', '45.000,00 €']]);
+  const drive = { archivos: [], carpetas: [{ nombre: 'Alumnos que no abonan', archivos: [{ id: ID_B, titulo: 'Beto' }] }, { nombre: 'Otra carpeta', archivos: [{ id: ID_A, titulo: 'Ana' }] }] };
+  const { get } = entorno({ alumnos, drive, planillas: { ...planillas, [ID_FINANZAS]: fin } });
+  assert.deepEqual(get({ accion: 'progreso', clave: CLAVE_A }).membresia, { vence: '2026-11-01' }, 'una carpeta con otro nombre no cuenta');
+  assert.equal(get({ accion: 'progreso', clave: CLAVE_B }).membresia, null);
+});
+
+test('si las finanzas no se pueden leer, el dashboard igual carga y no muestra membresía', () => {
+  const { get } = entorno({ alumnos, planillas });   // no hay planilla de finanzas
+  const a = get({ accion: 'progreso', clave: CLAVE_A });
+  assert.equal(a.ok, true);
+  assert.equal(a.membresia, null);
+});
+
+test('controlarPagos separa al día, por vencer, vencidos, los que no abonan y los que no tienen pago, con un parecido sugerido', () => {
+  const fin = finanzas([['10/10/26', 'Ana Gómez', 'PE', '1'], ['01/09/26', 'Cora Díaz', 'PE', '1'], ['14/09/26', 'Eva Pérez', 'PE', '1'], ['20/09/26', 'Beto Luis Pérez', 'PE', '1']]);
+  const al = [['Ana Gómez', '', `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`, CLAVE_A, ''],
+    ['Cora Díaz', '', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, ''],
+    ['Eva Pérez', '', `https://docs.google.com/spreadsheets/d/${idA(3)}/edit`, 'c3', ''],
+    ['Beto Pérez', '', `https://docs.google.com/spreadsheets/d/${idA(4)}/edit`, 'c4', ''],
+    ['Dora Sin Pago', '', `https://docs.google.com/spreadsheets/d/${idA(5)}/edit`, 'c5', ''],
+    ['Nico Exento', '', `https://docs.google.com/spreadsheets/d/${idA(6)}/edit`, 'c6', '']];
+  const drive = { carpetas: [{ nombre: 'Alumnos que no abonan', archivos: [{ id: idA(6), titulo: 'Nico Exento' }] }] };
+  const { api } = entorno({ alumnos: al, drive, planillas: { [ID_FINANZAS]: fin } });
+  const t = Array.from(api.controlarPagos('2026-10-14')).join('\n');
+  assert.match(t, /AL DÍA \(1\)/, 'Ana: pagó el 10/10, quedan 26 días');
+  assert.match(t, /POR VENCER.*\(1\): Eva Pérez \(quedan 0 días\)/, 'Eva pagó el 14/09: vence hoy');
+  assert.match(t, /VENCIDOS \(1\): Cora Díaz \(venció hace 13 días\)/, 'Cora pagó el 01/09: venció el 01/10');
+  assert.match(t, /NO ABONAN.*\(1\): Nico Exento/);
+  assert.match(t, /SIN PAGO ENCONTRADO \(2\).*Beto Pérez \(¿será "beto luis perez" en finanzas\?\).*Dora Sin Pago/, 'sugiere el parecido');
 });

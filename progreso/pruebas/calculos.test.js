@@ -121,7 +121,7 @@ test('limpiarRespuesta descarta lo que no tiene la forma esperada y no deja pasa
 
 test('limpiarRespuesta aguanta respuestas vacías o de otro tipo', () => {
   for (const x of [null, undefined, 5, 'hola', [], {}, { series: 'x', asistencia: {}, objetivos: [] }]) {
-    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], categorias: {}, asistencia: [], objetivos: {}, dias: [], actualizado: '', rutina: '', rutinaSemana: null });
+    assert.deepEqual(P.limpiarRespuesta(x), { nombre: '', series: [], categorias: {}, asistencia: [], objetivos: {}, dias: [], actualizado: '', rutina: '', rutinaSemana: null, membresia: null });
   }
 });
 
@@ -389,4 +389,32 @@ test('analizarDias: sin ningún tilde en ninguna semana, la última es la que es
 test('diasPorSemana agrupa por lunes y no cuenta dos veces el mismo día', () => {
   const m = P.diasPorSemana(['2026-10-12', '2026-10-12', '2026-10-14', '2026-10-19']);
   assert.deepEqual([...m.entries()], [['2026-10-12', 2], ['2026-10-19', 1]]);
+});
+
+test('estadoMembresia: al día, por vencer (5 días o menos) y vencida; el día del vencimiento todavía vale', () => {
+  const e = (vence, hoy) => P.estadoMembresia(vence, hoy);
+  assert.deepEqual([e('2026-11-01', '2026-10-20').estado, e('2026-11-01', '2026-10-20').dias, e('2026-11-01', '2026-10-20').detalle], ['aldia', 12, 'Te quedan 12 días']);
+  assert.equal(e('2026-11-01', '2026-10-20').titulo, 'Tu membresía está al día');
+  assert.equal(e('2026-10-27', '2026-10-20').estado, 'aldia', 'con 7 días sigue al día');
+  assert.equal(e('2026-10-25', '2026-10-20').estado, 'porvencer', 'con 5 días ya avisa');
+  assert.equal(e('2026-10-25', '2026-10-20').detalle, 'Te quedan 5 días');
+  assert.equal(e('2026-10-21', '2026-10-20').detalle, 'Vence mañana');
+  assert.equal(e('2026-10-20', '2026-10-20').detalle, 'Vence hoy');
+  assert.equal(e('2026-10-20', '2026-10-20').estado, 'porvencer', 'el día del vencimiento todavía vale');
+  assert.deepEqual([e('2026-10-19', '2026-10-20').estado, e('2026-10-19', '2026-10-20').detalle], ['vencida', 'Venció hace 1 día']);
+  assert.equal(e('2026-10-10', '2026-10-20').detalle, 'Venció hace 10 días');
+  assert.equal(e('2026-10-10', '2026-10-20').titulo, 'Tu membresía está vencida');
+  assert.equal(e('2026-11-04', '2026-10-31').detalle, 'Te quedan 4 días', 'cruza el fin de mes');
+  assert.equal(e('2027-01-05', '2026-12-30').detalle, 'Te quedan 6 días', 'cruza el fin de año');
+  assert.equal(e('2026-11-01', '2026-10-20').estado === 'aldia' && e('2026-10-20', '2026-10-20').dias, 0);
+});
+
+test('estadoMembresia: sin fecha o con una fecha rara no hay nada que mostrar', () => {
+  for (const v of [null, undefined, '', 'mañana', '2026-13-01', '2026-02-30', 5, {}]) assert.equal(P.estadoMembresia(v, '2026-10-20'), null, String(v));
+  assert.equal(P.estadoMembresia('2026-11-01', 'hoy'), null);
+});
+
+test('limpiarRespuesta: la membresía solo se acepta con una fecha de vencimiento válida', () => {
+  assert.deepEqual(P.limpiarRespuesta({ membresia: { vence: '2026-11-01', monto: 60000, otro: 'x' } }).membresia, { vence: '2026-11-01' }, 'solo la fecha, nada más');
+  for (const m of [null, undefined, {}, { vence: 'x' }, { vence: '2026-02-30' }, { vence: 20261101 }, 'ok', [], { vence: '<b>' }]) assert.equal(P.limpiarRespuesta({ membresia: m }).membresia, null, JSON.stringify(m));
 });

@@ -28,6 +28,13 @@ const CARPETA_ALUMNOS_ID = '17lWIhOvGDypNwmQAnff6BNE4ufhtGeYQ';
 const NO_SON_ALUMNOS = /dashboard|excercise|exercise|ejercicios|progreso|modelo|plantilla|copia de|^juan pablo g[oó]mez|catalogo|catálogo/i;
 // Mensaje de WhatsApp para cada alumno (armarMensajes lo escribe en la columna G de "Alumnos"; la F es "Acceso enviado", del script de accesos por mail). {nombre} y {link} se completan solos.
 const MENSAJE_WHATSAPP = 'Hola {nombre}! Te paso tu link personal para ver tu progreso, tu rutina y sacar turnos: {link}\n\nGuardalo en tu celular: abrilo, tocá Compartir y elegí "Añadir a pantalla de inicio", así te queda como una app. Es solo tuyo, no lo compartas.';
+// Membresía: la planilla "A Finanzas Entrenamiento Personal" (una pestaña por mes: Fecha | Alumno | Servicio | Monto). Solo se lee.
+// Cada pago cubre DIAS_MEMBRESIA días. A los alumnos cuya planilla esté en la subcarpeta CARPETA_NO_ABONAN (dentro de la carpeta de alumnos)
+// no se les muestra nada: no abonan. Al dashboard solo llega la fecha de vencimiento, nunca los montos.
+const FINANZAS_ID = '1wQKjfoI9KglNirjvoeCuVIzbYB01d5u4RSoBthHcGFM';
+const CARPETA_NO_ABONAN = 'Alumnos que no abonan';
+const DIAS_MEMBRESIA = 30;
+const SEGUNDOS_PAGOS = 1800;         // los pagos y la lista de quienes no abonan se releen cada 30 minutos
 const LINK_PARA_MEDIR = '';          // solo para medirTiempos: el link de la planilla que querés medir
 // ======================
 
@@ -495,6 +502,118 @@ function armarMensajes() {
   return hechos;
 }
 
+// ---------- Membresía ----------
+
+const dosDigitos_ = n => String(n).padStart(2, '0');
+
+/** Fecha de hoy en Argentina, 'AAAA-MM-DD' (el reloj del servidor puede estar en otra zona horaria). */
+const hoyArgentina_ = () => Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyy-MM-dd');
+
+/** Fecha de un pago ('AAAA-MM-DD') desde una celda: una fecha de Sheets o un texto "02/10/26" / "2/10/2026". Si no se entiende, ''. */
+function fechaDePago_(valor) {
+  if (valor instanceof Date) return isNaN(valor.getTime()) ? '' : `${valor.getFullYear()}-${dosDigitos_(valor.getMonth() + 1)}-${dosDigitos_(valor.getDate())}`;
+  const m = /^\s*(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})\s*$/.exec(String(valor == null ? '' : valor));
+  if (!m) return '';
+  const anio = m[3].length === 2 ? 2000 + +m[3] : +m[3], mes = +m[2], dia = +m[1];
+  const d = new Date(Date.UTC(anio, mes - 1, dia));
+  return d.getUTCFullYear() === anio && d.getUTCMonth() === mes - 1 && d.getUTCDate() === dia ? `${anio}-${dosDigitos_(mes)}-${dosDigitos_(dia)}` : '';
+}
+
+/** Suma `dias` a una fecha 'AAAA-MM-DD'. */
+const sumarDias_ = (iso, dias) => new Date(new Date(iso + 'T00:00:00Z').getTime() + dias * 86400000).toISOString().slice(0, 10);
+
+/** Las filas de una pestaña de finanzas (Fecha, Alumno, …) → último pago de cada nombre: { 'nombre normalizado': 'AAAA-MM-DD' }. Suma a `pagos`. */
+function sumarPagos_(valores, pagos) {
+  valores.forEach((fila, i) => {
+    if (i === 0 && !fechaDePago_(fila[0])) return; // encabezado
+    const fecha = fechaDePago_(fila[0]), nombre = claveNombre_(fila[1] == null ? '' : fila[1]);
+    if (!fecha || !nombre) return;
+    if (!pagos[nombre] || fecha > pagos[nombre]) pagos[nombre] = fecha;
+  });
+  return pagos;
+}
+
+/** El último pago de cada alumno, de todas las pestañas de FINANZAS_ID. Se guarda 30 minutos; si falla, {} y el dashboard simplemente no muestra la membresía. */
+function leerPagos_(forzar) {
+  if (!FINANZAS_ID) return {};
+  const guardado = forzar ? null : memoriaLeer_('pagos');
+  if (guardado) return guardado;
+  try {
+    const pagos = {};
+    SpreadsheetApp.openById(FINANZAS_ID).getSheets().forEach(h => {
+      const ultima = h.getLastRow();
+      if (ultima >= 1) sumarPagos_(h.getRange(1, 1, ultima, 2).getValues(), pagos);
+    });
+    memoriaGuardar_('pagos', pagos, SEGUNDOS_PAGOS);
+    return pagos;
+  } catch (err) {
+    Logger.log(`No se pudieron leer las finanzas: ${err}`);
+    memoriaGuardar_('pagos', {}, 300);
+    return {};
+  }
+}
+
+/** IDs de las planillas que están en la subcarpeta de quienes no abonan. Se guarda 30 minutos. */
+function idsNoAbonan_(forzar) {
+  const guardado = forzar ? null : memoriaLeer_('noabonan');
+  if (guardado) return guardado;
+  try {
+    const ids = [];
+    const subs = DriveApp.getFolderById(CARPETA_ALUMNOS_ID).getFoldersByName(CARPETA_NO_ABONAN);
+    while (subs.hasNext()) planillasEnCarpeta_(subs.next()).forEach(x => ids.push(x.id));
+    memoriaGuardar_('noabonan', ids, SEGUNDOS_PAGOS);
+    return ids;
+  } catch (err) {
+    Logger.log(`No se pudo leer la carpeta "${CARPETA_NO_ABONAN}": ${err}`);
+    return [];
+  }
+}
+
+/** { vence: 'AAAA-MM-DD' } con el vencimiento de la membresía, o null si no abona o no se encontró ningún pago con su nombre. */
+function membresiaDe_(nombre, idPlanilla, pagos, noAbonan) {
+  if ((noAbonan || []).indexOf(idPlanilla) >= 0) return null;
+  const ultimo = (pagos || {})[claveNombre_(nombre)];
+  return ultimo ? { vence: sumarDias_(ultimo, DIAS_MEMBRESIA) } : null;
+}
+
+/** Palabras de un nombre sin tildes ni mayúsculas, para sugerir parecidos. */
+const palabras_ = t => claveNombre_(t).split(' ').filter(Boolean);
+
+/**
+ * Para vos: revisa a todos los alumnos de la pestaña "Alumnos" y muestra (Ver > Registros de ejecución) quiénes están al día, por vencer
+ * o vencidos, quiénes no abonan y de quiénes NO se encontró ningún pago con su nombre (con un posible parecido para corregir).
+ * Ejecutala antes de mandar los accesos: un nombre escrito distinto en finanzas y en la planilla deja sin tarjeta a ese alumno.
+ */
+function controlarPagos(hoyTexto) {
+  const hoy = hoyTexto || hoyArgentina_();
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_ALUMNOS);
+  if (!hoja) throw new Error('Primero ejecutá configurar.');
+  const pagos = leerPagos_(true), noAbonan = idsNoAbonan_(true);
+  const dias = iso => Math.round((new Date(iso + 'T00:00:00Z') - new Date(hoy + 'T00:00:00Z')) / 86400000);
+  const alDia = [], porVencer = [], vencidos = [], exentos = [], sinPago = [];
+  leerAlumnos_(hoja).filter(a => a.nombre && a.planilla).forEach(a => {
+    if (noAbonan.indexOf(a.planilla) >= 0) { exentos.push(a.nombre); return; }
+    const m = membresiaDe_(a.nombre, a.planilla, pagos, noAbonan);
+    if (!m) {
+      const mias = palabras_(a.nombre);
+      const parecidos = Object.keys(pagos).filter(k => { const p = palabras_(k); return mias.length && mias.every(w => p.indexOf(w) >= 0) || p.every(w => mias.indexOf(w) >= 0); });
+      sinPago.push(a.nombre + (parecidos.length ? ` (¿será "${parecidos.slice(0, 2).join('" o "')}" en finanzas?)` : ''));
+      return;
+    }
+    const d = dias(m.vence);
+    (d < 0 ? vencidos : d <= 5 ? porVencer : alDia).push(`${a.nombre} (${d < 0 ? 'venció hace ' + -d : 'quedan ' + d} días)`);
+  });
+  const lineas = [
+    `AL DÍA (${alDia.length})`,
+    `POR VENCER, 5 días o menos (${porVencer.length}): ${porVencer.join(' · ') || 'ninguno'}`,
+    `VENCIDOS (${vencidos.length}): ${vencidos.join(' · ') || 'ninguno'}`,
+    `NO ABONAN, en la subcarpeta (${exentos.length}): ${exentos.join(' · ') || 'ninguno'}`,
+    `SIN PAGO ENCONTRADO (${sinPago.length}) — revisá cómo está escrito el nombre: ${sinPago.join(' · ') || 'ninguno'}`,
+  ];
+  Logger.log(lineas.join('\n'));
+  return lineas;
+}
+
 // ---------- Web app ----------
 
 const respuesta_ = obj => ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
@@ -549,6 +668,7 @@ function doGet(e) {
     ok: true, nombre: alumno.nombre, actualizado: new Date().toISOString(), ...resto,
     rutina: urlRutina_(alumno.planilla, semanaActual && semanaActual.gid), // el botón "Mi rutina": la planilla de ESTE alumno, nada más
     rutinaSemana: semanaActual ? semanaActual.n : null,
+    membresia: membresiaDe_(alumno.nombre, alumno.planilla, leerPagos_(), idsNoAbonan_()), // solo la fecha de vencimiento; null si no abona
   };
   memoriaGuardar_('p_' + clave, { ...respuestaAlumno, paq: empaquetar_(series, dias) }, SEGUNDOS_EN_MEMORIA);
   return enviar_(JSON.stringify({ ...respuestaAlumno, series, dias }));

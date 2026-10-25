@@ -30,7 +30,8 @@
     // Días de la rutina de las últimas 6 semanas (el ejemplo muestra el patrón "arranca fuerte, cierra flojo")
     const dias = [];
     for (let w = 0; w < 6; w++) [1, 2, 3, 4].forEach(d => dias.push({ semana: 97 + w, dia: d, hecho: d <= 2 || (w + d) % 3 === 0 }));
-    return { series, asistencia, categorias, dias };
+    const vence = new Date(Date.UTC(2026, 9, 14) + 12 * 864e5).toISOString().slice(0, 10); // ejemplo: 12 días de membresía
+    return { series, asistencia, categorias, dias, membresia: { vence } };
   }
   // Dirección del script central (se completa al publicarlo). Con ?c=CLAVE se muestran los datos reales de esa persona.
   const API_URL = 'https://script.google.com/macros/s/AKfycbxJOD38AnzlNTIYBdZjqZF20HhrCT2H53XL_7IuNtCS2oyCZfjfr1VK7PQX-1YgsEyfDQ/exec';
@@ -265,7 +266,33 @@
     caja.appendChild(ul);
   }
 
+  // WhatsApp del entrenador (si la membresía venció, la persona le escribe desde acá).
+  const WHATSAPP_ENTRENADOR = '5493425529111';
+  let nombreAlumno = '';
+
+  /** La tarjeta de la membresía: al día (verde), por vencer (naranja) o vencida (roja, con botón de WhatsApp). Nunca bloquea el acceso. */
+  function pintarMembresia() {
+    const caja = document.getElementById('pr-membresia');
+    const e = datos.membresia ? P.estadoMembresia(datos.membresia.vence, hoyIso()) : null;
+    caja.innerHTML = '';
+    caja.hidden = !e;
+    if (!e) return;
+    caja.className = 'pr-membresia ' + e.estado;
+    const texto = document.createElement('div'); texto.className = 'mem-texto';
+    const t = document.createElement('p'); t.className = 'mem-titulo'; t.textContent = e.titulo;
+    const d = document.createElement('p'); d.className = 'mem-detalle'; d.textContent = e.detalle;
+    texto.append(t, d);
+    caja.appendChild(texto);
+    if (e.estado === 'vencida') {
+      const mensaje = `Hola Juan Pablo${nombreAlumno ? ', soy ' + nombreAlumno : ''}. Mi membresía venció, ¿cómo lo resolvemos?`;
+      const a = document.createElement('a'); a.className = 'pastilla'; a.textContent = 'Escribime por WhatsApp';
+      a.href = `https://wa.me/${WHATSAPP_ENTRENADOR}?text=${encodeURIComponent(mensaje)}`; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      caja.appendChild(a);
+    }
+  }
+
   function render() {
+    pintarMembresia();
     dibujarDias();
     pintarRecords();
     dibujarDiasSemana();
@@ -358,8 +385,9 @@
   function guardar(limpio) { try { localStorage.setItem(llaveGuardado, JSON.stringify(limpio)); } catch (e) {} }
 
   function aplicar(limpio) {
-    datos = { series: limpio.series, asistencia: limpio.asistencia, categorias: limpio.categorias, dias: limpio.dias }; objetivos = limpio.objetivos;
+    datos = { series: limpio.series, asistencia: limpio.asistencia, categorias: limpio.categorias, dias: limpio.dias, membresia: limpio.membresia }; objetivos = limpio.objetivos;
     actualizadoIso = limpio.actualizado || new Date().toISOString();
+    nombreAlumno = limpio.nombre || '';
     if (limpio.nombre) document.getElementById('titulo').textContent = 'Hola, ' + limpio.nombre;
     const btn = document.getElementById('btn-rutina');
     if (limpio.rutina) {

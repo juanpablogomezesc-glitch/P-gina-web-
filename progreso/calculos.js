@@ -234,6 +234,23 @@
     return Math.max(conPesos, conAsistencia);
   }
 
+  const DIAS_AVISO_MEMBRESIA = 5; // con 5 días o menos, el aviso pasa a "por vencer"
+
+  /**
+   * Estado de la membresía a partir de su fecha de vencimiento ('AAAA-MM-DD') y de hoy. El día del vencimiento todavía vale.
+   * → { estado: 'aldia' | 'porvencer' | 'vencida', dias, titulo, detalle } o null si no hay fecha.
+   */
+  function estadoMembresia(vence, hoy) {
+    if (!fechaValida(vence) || !fechaValida(hoy)) return null;
+    const dias = Math.round((aFecha(vence) - aFecha(hoy)) / DIA_MS);
+    const plural = (n, u) => `${n} ${u}${n === 1 ? '' : 's'}`;
+    if (dias < 0) return { estado: 'vencida', dias, titulo: 'Tu membresía está vencida', detalle: `Venció hace ${plural(-dias, 'día')}` };
+    if (dias <= DIAS_AVISO_MEMBRESIA) {
+      return { estado: 'porvencer', dias, titulo: 'Tu membresía está por vencer', detalle: dias === 0 ? 'Vence hoy' : dias === 1 ? 'Vence mañana' : `Te quedan ${plural(dias, 'día')}` };
+    }
+    return { estado: 'aldia', dias, titulo: 'Tu membresía está al día', detalle: `Te quedan ${plural(dias, 'día')}` };
+  }
+
   /** Un mensaje corto según cómo viene la persona. Sin promesas ni comparaciones con otros. */
   function mensajeMotivacional({ racha = 0, diasSemanaActual = 0, faltan = DIAS_PARA_SEMANA_COMPLETA, minimo = DIAS_PARA_SEMANA_COMPLETA, objetivoCumplido = false, hayDatos = true } = {}) {
     if (!hayDatos) return 'Cuando empieces a entrenar, vas a ver acá tu progreso.';
@@ -390,7 +407,10 @@
     const RUTINA = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,}\/edit(#gid=\d{1,12})?$/;
     const rutina = typeof x.rutina === 'string' && RUTINA.test(x.rutina) ? x.rutina : '';
     const rutinaSemana = rutina && Number.isInteger(x.rutinaSemana) && x.rutinaSemana > 0 && x.rutinaSemana < 10000 ? x.rutinaSemana : null;
-    return { nombre, series, categorias, asistencia, objetivos, dias, actualizado, rutina, rutinaSemana };
+    // Solo se acepta una fecha de vencimiento real; cualquier otra cosa (o nada) significa que no hay nada que mostrar.
+    const vence = x.membresia && typeof x.membresia === 'object' && fechaValida(x.membresia.vence) ? x.membresia.vence : null;
+    const membresia = vence ? { vence } : null;
+    return { nombre, series, categorias, asistencia, objetivos, dias, actualizado, rutina, rutinaSemana, membresia };
   }
 
   return {
@@ -402,6 +422,6 @@
     // días entrenados, semanas y racha
     lunes, diasEntrenados, diasPorMes, diasPorSemana, semanasCompletas, semanasEntrenadas, minimoSemana, rachaSemanas, analizarDias,
     // textos y validación
-    mensajeMotivacional, haceCuanto, limpiarRespuesta,
+    mensajeMotivacional, haceCuanto, limpiarRespuesta, estadoMembresia,
   };
 });

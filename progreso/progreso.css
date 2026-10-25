@@ -124,3 +124,17 @@
 .pr-records .rec-antes { color: var(--suave); font-size: .78rem; white-space: nowrap; }
 .pr-records .rec-sem { font-size: .68rem; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255, 107, 26, .35); color: var(--suave); white-space: nowrap; }
 @media (max-width: 480px) { .pr-records .rec-lista li { display: grid; grid-template-columns: auto 1fr auto; } .pr-records .rec-nombre { grid-column: 2; } .pr-records .rec-valor { grid-column: 3; } .pr-records .rec-antes { grid-column: 2; } .pr-records .rec-sem { grid-column: 3; justify-self: end; } }
+
+/* Membresía: al día (verde), por vencer (naranja) y vencida (roja). Siempre se puede entrar: es solo un aviso. */
+.progreso .pr-membresia { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; margin: 0 0 14px; padding: 14px 18px; border-radius: 12px; border: 1px solid var(--borde); background: var(--tarjeta); }
+.progreso .pr-membresia[hidden] { display: none; }
+.progreso .pr-membresia .mem-titulo { margin: 0; font: 700 1.05rem var(--fuente-titulos); text-transform: uppercase; letter-spacing: .04em; }
+.progreso .pr-membresia .mem-detalle { margin: 4px 0 0; color: var(--suave); font-size: .95rem; }
+.progreso .pr-membresia.aldia { border-color: rgba(74, 222, 128, .45); background: rgba(74, 222, 128, .08); }
+.progreso .pr-membresia.aldia .mem-titulo { color: #4ade80; }
+.progreso .pr-membresia.porvencer { border-color: rgba(255, 107, 26, .55); background: var(--acento-suave); }
+.progreso .pr-membresia.porvencer .mem-titulo { color: var(--acento); }
+.progreso .pr-membresia.vencida { border-color: rgba(255, 77, 77, .65); background: rgba(255, 77, 77, .1); }
+.progreso .pr-membresia.vencida .mem-titulo { color: #ff6b6b; }
+.progreso .pr-membresia.vencida .mem-detalle { color: var(--texto); }
+@media (max-width: 480px) { .progreso .pr-membresia.vencida .pastilla { width: 100%; } }
