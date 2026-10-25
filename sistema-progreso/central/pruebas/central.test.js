@@ -637,15 +637,16 @@ test('el nombre del alumno sale del título de la planilla', () => {
     assert.equal(api.nombreDeTitulo_(titulo), nombre, titulo);
 });
 
-test('previsualizar no escribe nada y separa nuevas, ya cargadas y salteadas (catálogo, la planilla de progreso, la tuya y modelos)', () => {
+test('previsualizar no escribe nada y separa nuevas, ya cargadas y salteadas (tu planilla y los modelos); las subcarpetas no cuentan', () => {
   const drive = { archivos: [{ id: idA(1), titulo: 'Dana Montenegro' }, { id: idA(2), titulo: 'Beto Pérez' }, { id: 'modeloModeloModeloModeloModelo1', titulo: 'Planilla modelo' }, { id: 'miPlanillaMiPlanillaMiPlanilla11', titulo: 'Juan Pablo Gomez' }],
     carpetas: [{ archivos: [{ id: 'catalogoCatalogoCatalogoCatalogo1', titulo: 'A Dashboard Excercise' }, { id: idA(3), titulo: 'Carla Ruiz' }, { id: idA(1), titulo: 'Dana Montenegro' }] }] };
   const { api, filas } = entorno({ drive, alumnos: [['Beto', 'beto@ejemplo.com', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, '']] });
   const antes = JSON.stringify(filas);
   const lineas = Array.from(api.previsualizarAlumnos()).join('\n');
-  assert.match(lineas, /A CARGAR \(2\): Carla Ruiz · Dana Montenegro/, 'Dana aparece una sola vez aunque esté en dos carpetas');
+  assert.match(lineas, /A CARGAR \(1\): Dana Montenegro/, 'solo las que están directamente en la carpeta; Carla está en una subcarpeta y no cuenta');
+  assert.ok(!/Carla/.test(lineas), 'las subcarpetas no se miran');
   assert.match(lineas, /YA CARGADAS: 1/);
-  assert.match(lineas, /SALTEADAS.*\(3\)/);
+  assert.match(lineas, /SALTEADAS.*\(2\)/, 'el modelo y tu planilla; el catálogo está en una subcarpeta y ni se mira');
   assert.equal(JSON.stringify(filas), antes, 'no escribió nada');
 });
 

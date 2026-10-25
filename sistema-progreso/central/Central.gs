@@ -22,7 +22,7 @@ const SEMANAS_MAXIMO = 200;          // tope de pestañas "Semana N" que se leen
 const SEGUNDOS_EN_MEMORIA = 300;     // una consulta repetida en 5 minutos no vuelve a leer la planilla
 const SEGUNDOS_MINIMOS_ENTRE_LECTURAS = 30; // el botón "Actualizar" de la página no lee la planilla más de una vez cada 30 segundos
 const SEGUNDOS_LISTA_ALUMNOS = 60;   // la lista de alumnos se lee de la planilla a lo sumo una vez por minuto (también es lo que tarda en valer una clave borrada)
-// Carpeta de Drive con las planillas de los alumnos ("Online"). cargarAlumnosDeCarpeta busca ahí (y en sus subcarpetas) una planilla por alumno.
+// Carpeta de Drive con las planillas de los alumnos activos ("Online"). cargarAlumnosDeCarpeta toma una fila por cada planilla que esté directamente ahí; las subcarpetas no se miran.
 const CARPETA_ALUMNOS_ID = '17lWIhOvGDypNwmQAnff6BNE4ufhtGeYQ';
 // Planillas de la carpeta que NO son de un alumno (por el nombre): se saltean. Agregá palabras si hace falta.
 const NO_SON_ALUMNOS = /dashboard|excercise|exercise|ejercicios|progreso|modelo|plantilla|copia de|^juan pablo g[oó]mez|catalogo|catálogo/i;
@@ -402,15 +402,11 @@ function nombreDeTitulo_(titulo) {
   return t || limpiarNombre_(titulo);
 }
 
-/** Todas las planillas de una carpeta y sus subcarpetas (hasta 4 niveles): [{ id, titulo }]. */
-function planillasEnCarpeta_(carpeta, nivel) {
+/** Las planillas que están directamente en la carpeta (las de las subcarpetas no cuentan: los alumnos activos están en "Online"): [{ id, titulo }]. */
+function planillasEnCarpeta_(carpeta) {
   const lista = [];
   const archivos = carpeta.getFilesByType(MimeType.GOOGLE_SHEETS);
   while (archivos.hasNext()) { const f = archivos.next(); lista.push({ id: f.getId(), titulo: f.getName() }); }
-  if ((nivel || 0) < 4) {
-    const sub = carpeta.getFolders();
-    while (sub.hasNext()) lista.push(...planillasEnCarpeta_(sub.next(), (nivel || 0) + 1));
-  }
   return lista;
 }
 
@@ -418,7 +414,7 @@ function planillasEnCarpeta_(carpeta, nivel) {
 function clasificarPlanillas_(planillas, idsCargados, idsPropios) {
   const nuevas = [], yaCargadas = [], salteadas = [], vistos = new Set();
   planillas.forEach(x => {
-    if (vistos.has(x.id)) return; // el mismo archivo en dos carpetas (accesos directos)
+    if (vistos.has(x.id)) return; // el mismo archivo repetido
     vistos.add(x.id);
     if (idsPropios.has(x.id) || NO_SON_ALUMNOS.test(x.titulo)) salteadas.push(x);
     else if (idsCargados.has(x.id)) yaCargadas.push(x);
