@@ -33,7 +33,7 @@ const ENCABEZADO_NUEVO = ['', '', '', 'Ejercicios ', 'Obs', '', 'SER', 'REP', 'K
 const ENCABEZADO_VIEJO = ['', '', '', 'Ejercicios ', 'Obs', '', 'Ser', 'Repeticiones ', '', '', '', '', '', 'Kilogramos'];
 const semana = (n, filas, encabezado = ENCABEZADO_NUEVO, opciones) => hoja(`Semana ${n}`, [encabezado, ['', '', '', 'DÍA 1 '], ...filas], opciones);
 
-function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
+function entorno({ alumnos = [], planillas = {}, enlaces = {}, drive = null } = {}) {
   const celdasCache = new Map();
   const vence = new Map();
   const reloj = { t: Date.now() };
@@ -52,10 +52,14 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
       setValues: v => v.forEach((fila, i) => fila.forEach((x, j) => { (filasAlumnos[f - 1 + i] = filasAlumnos[f - 1 + i] || [])[c - 1 + j] = x; })),
     }),
   };
-  const ss = { getSheetByName: n => (n === 'Alumnos' ? hojaAlumnos : null), toast: t => avisos.push(t) };
+  const ss = { getSheetByName: n => (n === 'Alumnos' ? hojaAlumnos : null), toast: t => avisos.push(t), getId: () => 'idDeLaPlanillaDeProgresoXXXXXXXXXXXXX' };
+  const iterador = lista => { let i = 0; return { hasNext: () => i < lista.length, next: () => lista[i++] }; };
+  const carpetaFalsa = c => ({ getFilesByType: () => iterador((c.archivos || []).map(a => ({ getId: () => a.id, getName: () => a.titulo }))), getFolders: () => iterador((c.carpetas || []).map(carpetaFalsa)) });
   const lecturas = { n: 0 };
   const ctx = vm.createContext({
     Date: RelojFalso, Math, Error, JSON, Map, Set, Logger: { log() {} },
+    DriveApp: { getFolderById: () => carpetaFalsa(drive || {}) },
+    MimeType: { GOOGLE_SHEETS: 'sheet' },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ss,
       openById: id => { if (id !== ID_CATALOGO) lecturas.n++; if (!planillas[id]) throw new Error('sin acceso'); return planillas[id]; },
@@ -63,7 +67,7 @@ function entorno({ alumnos = [], planillas = {}, enlaces = {} } = {}) {
     CacheService: { getScriptCache: () => ({ get: k => (celdasCache.has(k) && !(vence.get(k) <= reloj.t) ? celdasCache.get(k) : null), put: (k, v, seg) => { celdasCache.set(k, v); vence.set(k, reloj.t + seg * 1000); } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ texto: t, setMimeType() { return this; } }) },
   });
-  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, leerCatalogo_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
+  vm.runInContext(CODIGO + '\n;this.__api = { esHojaAsistencia_, leerSemana_, leerDiasTildados_, esFormatoNuevo_, leerReps_, fechasMarcadas_, objetivosMensuales_, leerPlanilla_, grupoDeCategoria_, armarCatalogo_, nombreDeTitulo_, clasificarPlanillas_, previsualizarAlumnos, cargarAlumnosDeCarpeta, leerCatalogo_, empaquetar_, desempaquetar_, doGet, idDePlanilla_, generarClaves, medirTiempos };', ctx);
   const get = parametros => JSON.parse(ctx.__api.doGet({ parameter: parametros }).texto);
   return { api: ctx.__api, get, lecturas, reloj, cache: celdasCache, filas: filasAlumnos, avisos, lecturasAlumnos };
 }
@@ -622,4 +626,49 @@ test('claveNombre_ (script) y clave (página) normalizan los nombres exactamente
   const claveScript = new Function('return ' + /const claveNombre_ = (t => [^\n]+);/.exec(CODIGO)[1])();
   const nombres = ['Sentadilla C/B', '  sentadilla   c/b ', 'SENTADILLA C/B', 'Prensa 45º', 'Peso Muerto Rumano C/M ', 'Dominadas Pronas', 'Remo Polea Baja Neutra', 'Abdominales con Disco Arriba', 'Hip Trust 1pp C/M', 'Sillón Cuadríceps', 'ÑANDÚ é ü', '', 'a\tb\nc'];
   for (const n of nombres) assert.equal(claveWeb(n), claveScript(n), JSON.stringify(n));
+});
+
+// ---- carga de alumnos desde la carpeta de Drive ----
+const idA = n => `planillaDeLaAlumna${n}`.padEnd(40, 'X');
+
+test('el nombre del alumno sale del título de la planilla', () => {
+  const { api } = entorno();
+  for (const [titulo, nombre] of [['Dana Montenegro', 'Dana Montenegro'], ['  Dana   Montenegro ', 'Dana Montenegro'], ['Planilla Dana Montenegro', 'Dana Montenegro'], ['Planilla de Dana Montenegro - Online', 'Dana Montenegro'], ['Dana Montenegro (2026)', 'Dana Montenegro'], ['Rutina: Beto Pérez', 'Beto Pérez'], ['Planilla', 'Planilla']])
+    assert.equal(api.nombreDeTitulo_(titulo), nombre, titulo);
+});
+
+test('previsualizar no escribe nada y separa nuevas, ya cargadas y salteadas (catálogo, la planilla de progreso, la tuya y modelos)', () => {
+  const drive = { archivos: [{ id: idA(1), titulo: 'Dana Montenegro' }, { id: idA(2), titulo: 'Beto Pérez' }, { id: 'modeloModeloModeloModeloModelo1', titulo: 'Planilla modelo' }, { id: 'miPlanillaMiPlanillaMiPlanilla11', titulo: 'Juan Pablo Gomez' }],
+    carpetas: [{ archivos: [{ id: 'catalogoCatalogoCatalogoCatalogo1', titulo: 'A Dashboard Excercise' }, { id: idA(3), titulo: 'Carla Ruiz' }, { id: idA(1), titulo: 'Dana Montenegro' }] }] };
+  const { api, filas } = entorno({ drive, alumnos: [['Beto', 'beto@ejemplo.com', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, '']] });
+  const antes = JSON.stringify(filas);
+  const lineas = Array.from(api.previsualizarAlumnos()).join('\n');
+  assert.match(lineas, /A CARGAR \(2\): Carla Ruiz · Dana Montenegro/, 'Dana aparece una sola vez aunque esté en dos carpetas');
+  assert.match(lineas, /YA CARGADAS: 1/);
+  assert.match(lineas, /SALTEADAS.*\(3\)/);
+  assert.equal(JSON.stringify(filas), antes, 'no escribió nada');
+});
+
+test('cargar agrega una fila por alumno nuevo, con su link y su clave, y no toca las que ya estaban', () => {
+  const drive = { archivos: [{ id: idA(1), titulo: 'Dana Montenegro' }, { id: idA(2), titulo: 'Beto Pérez' }] };
+  const { api, filas } = entorno({ drive, alumnos: [['Beto', 'beto@ejemplo.com', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, `https://x/?c=${CLAVE_B}`]] });
+  assert.equal(api.cargarAlumnosDeCarpeta(), 1);
+  assert.equal(filas.length, 3, 'encabezado + Beto + Dana');
+  assert.deepEqual(filas[1].slice(0, 4), ['Beto', 'beto@ejemplo.com', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B], 'Beto sin cambios');
+  assert.equal(filas[2][0], 'Dana Montenegro');
+  assert.equal(filas[2][2], `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`);
+  assert.match(filas[2][3], /^[a-zA-Z0-9]{24}$/, 'tiene clave');
+  assert.ok(filas[2][4].endsWith('?c=' + filas[2][3]), 'y su link personal');
+  assert.notEqual(filas[2][3], CLAVE_B);
+  assert.equal(api.cargarAlumnosDeCarpeta(), 0, 'una segunda vez no repite a nadie');
+  assert.equal(filas.length, 3);
+});
+
+test('cargar muchos alumnos: claves todas distintas', () => {
+  const drive = { archivos: Array.from({ length: 69 }, (_, i) => ({ id: idA(i + 100), titulo: `Alumno Número ${i + 1}` })) };
+  const { api, filas } = entorno({ drive });
+  assert.equal(api.cargarAlumnosDeCarpeta(), 69);
+  const claves = filas.slice(1).map(f => f[3]);
+  assert.equal(new Set(claves).size, 69);
+  assert.ok(claves.every(c => /^[a-zA-Z0-9]{24}$/.test(c)));
 });

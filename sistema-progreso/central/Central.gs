@@ -22,6 +22,10 @@ const SEMANAS_MAXIMO = 200;          // tope de pestañas "Semana N" que se leen
 const SEGUNDOS_EN_MEMORIA = 300;     // una consulta repetida en 5 minutos no vuelve a leer la planilla
 const SEGUNDOS_MINIMOS_ENTRE_LECTURAS = 30; // el botón "Actualizar" de la página no lee la planilla más de una vez cada 30 segundos
 const SEGUNDOS_LISTA_ALUMNOS = 60;   // la lista de alumnos se lee de la planilla a lo sumo una vez por minuto (también es lo que tarda en valer una clave borrada)
+// Carpeta de Drive con las planillas de los alumnos ("Online"). cargarAlumnosDeCarpeta busca ahí (y en sus subcarpetas) una planilla por alumno.
+const CARPETA_ALUMNOS_ID = '17lWIhOvGDypNwmQAnff6BNE4ufhtGeYQ';
+// Planillas de la carpeta que NO son de un alumno (por el nombre): se saltean. Agregá palabras si hace falta.
+const NO_SON_ALUMNOS = /dashboard|excercise|exercise|ejercicios|progreso|modelo|plantilla|copia de|^juan pablo g[oó]mez|catalogo|catálogo/i;
 const LINK_PARA_MEDIR = '';          // solo para medirTiempos: el link de la planilla que querés medir
 // ======================
 
@@ -388,6 +392,79 @@ function listaAlumnos_() {
 function buscarAlumno_(clave) {
   const a = listaAlumnos_().find(x => x.clave === clave);
   return a ? { nombre: a.nombre, planilla: a.planilla } : null;
+}
+
+// ---------- Carga de alumnos desde la carpeta de Drive ----------
+
+/** "Planilla Dana Montenegro - Online" → "Dana Montenegro" (el primer nombre es lo que se muestra en "Hola, Dana"). */
+function nombreDeTitulo_(titulo) {
+  const t = limpiarNombre_(titulo).replace(/^(planilla|rutina|plan|entrenamiento)\s*(de\s+)?[-:]?\s*/i, '').replace(/\s*[-–(].*$/, '').trim();
+  return t || limpiarNombre_(titulo);
+}
+
+/** Todas las planillas de una carpeta y sus subcarpetas (hasta 4 niveles): [{ id, titulo }]. */
+function planillasEnCarpeta_(carpeta, nivel) {
+  const lista = [];
+  const archivos = carpeta.getFilesByType(MimeType.GOOGLE_SHEETS);
+  while (archivos.hasNext()) { const f = archivos.next(); lista.push({ id: f.getId(), titulo: f.getName() }); }
+  if ((nivel || 0) < 4) {
+    const sub = carpeta.getFolders();
+    while (sub.hasNext()) lista.push(...planillasEnCarpeta_(sub.next(), (nivel || 0) + 1));
+  }
+  return lista;
+}
+
+/** Separa las planillas de la carpeta en: nuevas (alumnos que todavía no están), ya cargadas y salteadas (no son de un alumno). */
+function clasificarPlanillas_(planillas, idsCargados, idsPropios) {
+  const nuevas = [], yaCargadas = [], salteadas = [], vistos = new Set();
+  planillas.forEach(x => {
+    if (vistos.has(x.id)) return; // el mismo archivo en dos carpetas (accesos directos)
+    vistos.add(x.id);
+    if (idsPropios.has(x.id) || NO_SON_ALUMNOS.test(x.titulo)) salteadas.push(x);
+    else if (idsCargados.has(x.id)) yaCargadas.push(x);
+    else nuevas.push({ ...x, nombre: nombreDeTitulo_(x.titulo) });
+  });
+  nuevas.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  return { nuevas, yaCargadas, salteadas };
+}
+
+function planillasDeCarpeta_() {
+  if (!CARPETA_ALUMNOS_ID) throw new Error('Falta CARPETA_ALUMNOS_ID, arriba, en OPCIONES.');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName(HOJA_ALUMNOS);
+  if (!hoja) throw new Error('Primero ejecutá configurar.');
+  const cargados = new Set(leerAlumnos_(hoja).map(a => a.planilla).filter(Boolean));
+  const propios = new Set([ss.getId(), CATALOGO_ID].filter(Boolean));
+  return { hoja, ...clasificarPlanillas_(planillasEnCarpeta_(DriveApp.getFolderById(CARPETA_ALUMNOS_ID)), cargados, propios) };
+}
+
+/**
+ * PASO 1 (no escribe nada): muestra qué planillas encontró en la carpeta, cuáles carga como alumnos y cuáles saltea.
+ * Mirá Ver > Registros de ejecución. Si falta o sobra alguna, corregí NO_SON_ALUMNOS (arriba) y volvé a ejecutarla.
+ */
+function previsualizarAlumnos() {
+  const r = planillasDeCarpeta_();
+  const lineas = [
+    `A CARGAR (${r.nuevas.length}): ${r.nuevas.map(x => x.nombre).join(' · ') || 'ninguna'}`,
+    `YA CARGADAS: ${r.yaCargadas.length}`,
+    `SALTEADAS, no son de un alumno (${r.salteadas.length}): ${r.salteadas.map(x => x.titulo).join(' · ') || 'ninguna'}`,
+  ];
+  Logger.log(lineas.join('\n'));
+  return lineas;
+}
+
+/**
+ * PASO 2: agrega a la pestaña "Alumnos" una fila por cada planilla nueva de la carpeta (nombre y link) y les genera la clave.
+ * No toca las filas que ya están ni borra nada. Se puede ejecutar de nuevo cuando sumes un alumno: solo agrega los que faltan.
+ */
+function cargarAlumnosDeCarpeta() {
+  const r = planillasDeCarpeta_();
+  if (!r.nuevas.length) { SpreadsheetApp.getActiveSpreadsheet().toast('No hay planillas nuevas en la carpeta.', 'Progreso', 10); Logger.log('No hay planillas nuevas en la carpeta.'); return 0; }
+  const filas = r.nuevas.map(x => [x.nombre, '', `https://docs.google.com/spreadsheets/d/${x.id}/edit`, '', '']);
+  r.hoja.getRange(r.hoja.getLastRow() + 1, 1, filas.length, COLUMNAS_ALUMNOS.length).setValues(filas);
+  Logger.log(`Se agregaron ${filas.length} alumno(s): ${r.nuevas.map(x => x.nombre).join(' · ')}`);
+  generarClaves();
+  return filas.length;
 }
 
 // ---------- Web app ----------
