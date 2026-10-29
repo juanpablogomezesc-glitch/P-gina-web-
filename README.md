@@ -13,6 +13,8 @@ en Instagram y en el grupo de WhatsApp. HTML y CSS, sin dependencias.
 - `sistema-turnos/`: el código que guarda los turnos en una planilla de Google,
   con las instrucciones para ponerlo en marcha (`sistema-turnos/INSTRUCCIONES.md`)
   y sus pruebas (`node --test sistema-turnos/pruebas/pruebas.test.js`).
+- `servidor/`: guía para convertir la notebook Bangho en un servidor (`servidor/README.md`)
+  y el primer servidor de prueba hecho con Node (`servidor/hola/servidor.js`).
 
 ## Cómo sumar un artículo
 
