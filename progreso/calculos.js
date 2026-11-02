@@ -60,6 +60,13 @@
     });
   }
 
+  /** Cuánto subió el récord de 1RM desde la primera semana con datos (a 0,5 kg). Null con menos de dos semanas. */
+  function mejoraTotal(record) {
+    if (record.length < 2) return null;
+    const primero = record[0], ultimo = record[record.length - 1];
+    return { kg: Math.round((ultimo.valor - primero.valor) * 2) / 2, desdeSemana: primero.semana };
+  }
+
   /** Récord personal: el mayor peso levantado (a igualdad, el de más repeticiones; a igualdad, el más reciente). */
   function recordPersonal(series, ejercicio) {
     let mejor = null;
@@ -418,7 +425,7 @@
     // constantes
     EJERCICIOS, MIN_SEMANAS_PATRON, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA,
     // ejercicios
-    epley, rmPorSemana, rmRecord, recordPersonal, mejoresPorReps, resumenEjercicio, desdeSemana, desdeUltimasSemanas,
+    epley, rmPorSemana, rmRecord, mejoraTotal, recordPersonal, mejoresPorReps, resumenEjercicio, desdeSemana, desdeUltimasSemanas,
     nuevoRecord, recordsRecientes, nombresDeEjercicios, agruparEjercicios, ejercicioInicial,
     // días entrenados, semanas y racha
     lunes, diasEntrenados, diasPorMes, diasPorSemana, semanasCompletas, semanasEntrenadas, minimoSemana, rachaSemanas, analizarDias,

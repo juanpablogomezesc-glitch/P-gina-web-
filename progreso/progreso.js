@@ -326,10 +326,12 @@
     const rmTodo = P.rmRecord(datos.series, ejercicio);
     const rmActual = rmTodo.length ? rmTodo[rmTodo.length - 1].valor : null;
     const rmGrafico = desde ? rmTodo.filter(x => x.semana >= desde) : rmTodo;
+    const mt = P.mejoraTotal(rmTodo);
     const nr = P.recordsRecientes(datos.series).find(x => x.ejercicio === ejercicio);
     mini('Récord personal', r.record ? `${fmtNum(r.record.kg)} <small>kg × ${r.record.reps}</small>` : '—',
       nr ? `★ Nuevo récord · semana ${nr.semana} (antes ${fmtNum(nr.anterior)} kg)` : (r.record ? 'Semana ' + r.record.semana : ''), nr ? 'record' : '');
     mini('Fuerza relativa', rmActual && peso ? `${fmtRel(rmActual / peso)} <small>× peso</small>` : '—', peso ? 'mejor 1RM estimado ÷ tu peso' : 'Cargá tu peso arriba');
+    mini('Mejora total', mt ? `+${fmtNum(mt.kg)} <small>kg</small>` : '—', mt ? `desde la semana ${mt.desdeSemana}` : 'Falta una semana más', mt && mt.kg > 0 ? 'sube' : '');
     det.appendChild(caja);
 
     const t = tarjeta(ejercicio + ' · récord de 1RM estimado', rmActual === null ? '—' : `${fmtNum(rmActual)} <small>kg</small>`);

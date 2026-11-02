@@ -159,6 +159,12 @@ test('récord de 1RM: la línea no baja en la semana de descarga y sube cuando s
   assert.deepEqual(P.rmRecord(series, 'Despegue C/B'), []);
 });
 
+test('mejora total: lo que subió el récord desde la primera semana', () => {
+  const rec = P.rmRecord([s(4, 'Sentadilla C/B', 100, 5), s(5, 'Sentadilla C/B', 80, 5), s(9, 'Sentadilla C/B', 120, 5)], 'Sentadilla C/B');
+  assert.deepEqual(P.mejoraTotal(rec), { kg: 23.5, desdeSemana: 4 }); // 140 − 116,5
+  assert.equal(P.mejoraTotal(P.rmRecord([s(1, 'Sentadilla C/B', 100, 5)], 'Sentadilla C/B')), null);
+});
+
 test('racha: semanas completas seguidas; la semana en curso no corta la racha hasta que termina', () => {
   // semanas del 5/10, 12/10 y 19/10 con 3 días cada una; el 26/10 hay un día
   const fechas = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-19', '2026-10-20', '2026-10-21', '2026-10-26'];
