@@ -151,11 +151,12 @@ test('récords recientes: solo los de la última semana con datos o la anterior'
   assert.deepEqual(P.recordsRecientes([]), []);
 });
 
-test('cambio semanal del 1RM entre las dos últimas semanas con datos', () => {
-  const series = [s(97, 'Despegue C/B', 120, 5), s(99, 'Despegue C/B', 130, 5), s(100, 'Despegue C/B', 135, 5)];
-  const c = P.cambioSemanal(series, 'Despegue C/B');
-  assert.deepEqual([c.anteriorSemana, c.semana, c.actual, c.anterior, c.diferencia], [99, 100, 157.5, 151.5, 6]); // 135×5 → 157,5 · 130×5 → 151,5 (Epley, a 0,5)
-  assert.equal(P.cambioSemanal([s(1, 'Despegue C/B', 100, 5)], 'Despegue C/B'), null);
+test('récord de 1RM: la línea no baja en la semana de descarga y sube cuando se supera la marca', () => {
+  const series = [s(4, 'Sentadilla C/B', 120, 3), s(5, 'Sentadilla C/B', 100, 5), s(6, 'Sentadilla C/B', 90, 5), s(8, 'Sentadilla C/B', 125, 3), s(7, 'Press plano C/B', 50, 5)];
+  const rec = P.rmRecord(series, 'Sentadilla C/B');
+  assert.deepEqual(rec.map(x => x.semana), [4, 5, 6, 8]);
+  assert.deepEqual(rec.map(x => x.valor), [132, 132, 132, 137.5]); // 120×3 → 132 · 125×3 → 137,5
+  assert.deepEqual(P.rmRecord(series, 'Despegue C/B'), []);
 });
 
 test('racha: semanas completas seguidas; la semana en curso no corta la racha hasta que termina', () => {

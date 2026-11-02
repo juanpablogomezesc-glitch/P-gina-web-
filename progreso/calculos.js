@@ -51,6 +51,15 @@
     return [...porSemana.entries()].sort((a, b) => a[0] - b[0]).map(([semana, valor]) => ({ semana, valor }));
   }
 
+  /** Récord de 1RM estimado semana a semana: la línea nunca baja, solo sube cuando se supera la mejor marca anterior. */
+  function rmRecord(series, ejercicio) {
+    let tope = 0;
+    return rmPorSemana(series, ejercicio).map(({ semana, valor }) => {
+      tope = Math.max(tope, valor);
+      return { semana, valor: tope };
+    });
+  }
+
   /** Récord personal: el mayor peso levantado (a igualdad, el de más repeticiones; a igualdad, el más reciente). */
   function recordPersonal(series, ejercicio) {
     let mejor = null;
@@ -198,14 +207,6 @@
     const todos = grupos.flatMap(g => g.ejercicios);
     const principal = EJERCICIOS.find(e => todos.some(n => clave(n) === clave(e)));
     return principal ? todos.find(n => clave(n) === clave(principal)) : (todos[0] || EJERCICIOS[0]);
-  }
-
-  /** Cambio del 1RM estimado entre las dos últimas semanas con datos del ejercicio, o null si hay menos de dos. */
-  function cambioSemanal(series, ejercicio) {
-    const sem = rmPorSemana(series, ejercicio);
-    if (sem.length < 2) return null;
-    const a = sem[sem.length - 1], b = sem[sem.length - 2];
-    return { semana: a.semana, anteriorSemana: b.semana, actual: a.valor, anterior: b.valor, diferencia: Math.round((a.valor - b.valor) * 2) / 2 };
   }
 
   const restarSemana = iso => aIso(new Date(aFecha(iso).getTime() - 7 * DIA_MS));
@@ -417,8 +418,8 @@
     // constantes
     EJERCICIOS, MIN_SEMANAS_PATRON, MAX_REPS_ESTIMABLES, DIAS_PARA_SEMANA_COMPLETA,
     // ejercicios
-    epley, rmPorSemana, recordPersonal, mejoresPorReps, resumenEjercicio, desdeSemana, desdeUltimasSemanas,
-    nuevoRecord, recordsRecientes, cambioSemanal, nombresDeEjercicios, agruparEjercicios, ejercicioInicial,
+    epley, rmPorSemana, rmRecord, recordPersonal, mejoresPorReps, resumenEjercicio, desdeSemana, desdeUltimasSemanas,
+    nuevoRecord, recordsRecientes, nombresDeEjercicios, agruparEjercicios, ejercicioInicial,
     // días entrenados, semanas y racha
     lunes, diasEntrenados, diasPorMes, diasPorSemana, semanasCompletas, semanasEntrenadas, minimoSemana, rachaSemanas, analizarDias,
     // textos y validación

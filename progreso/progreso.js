@@ -322,24 +322,21 @@
     const det = document.getElementById('detalle'); det.innerHTML = '';
     const caja = document.createElement('div'); caja.className = 'pr-resumen';
     const mini = (rot, val, nota, clase) => { const d = document.createElement('div'); d.className = 'dato'; d.innerHTML = `<div class="rotulo">${rot}</div><div class="valor">${val}</div>${nota ? `<div class="delta${clase ? ' ' + clase : ''}">${nota}</div>` : ''}`; caja.appendChild(d); };
-    const cs = P.cambioSemanal(datos.series, ejercicio);
-    const signo = n => (n > 0 ? '+' : n < 0 ? '−' : '');
-    const notaRm = [
-      cs ? `${cs.diferencia > 0 ? '▲' : cs.diferencia < 0 ? '▼' : '='} ${signo(cs.diferencia)}${fmtNum(Math.abs(cs.diferencia))} kg vs semana ${cs.anteriorSemana}` : '',
-      r.cambio === null ? '' : `${signo(r.cambio)}${fmtNum(Math.abs(r.cambio))} kg en el período`,
-    ].filter(Boolean).join('<br>');
-    mini('1RM estimado', r.actual === null ? '—' : `${fmtNum(r.actual)} <small>kg</small>`, notaRm, cs && cs.diferencia > 0 ? 'sube' : '');
+    // El récord se acumula con todo el historial; el período elegido solo recorta lo que se dibuja.
+    const rmTodo = P.rmRecord(datos.series, ejercicio);
+    const rmActual = rmTodo.length ? rmTodo[rmTodo.length - 1].valor : null;
+    const rmGrafico = desde ? rmTodo.filter(x => x.semana >= desde) : rmTodo;
     const nr = P.recordsRecientes(datos.series).find(x => x.ejercicio === ejercicio);
     mini('Récord personal', r.record ? `${fmtNum(r.record.kg)} <small>kg × ${r.record.reps}</small>` : '—',
       nr ? `★ Nuevo récord · semana ${nr.semana} (antes ${fmtNum(nr.anterior)} kg)` : (r.record ? 'Semana ' + r.record.semana : ''), nr ? 'record' : '');
-    mini('Fuerza relativa', r.actual && peso ? `${fmtRel(r.actual / peso)} <small>× peso</small>` : '—', peso ? '1RM estimado ÷ tu peso' : 'Cargá tu peso arriba');
+    mini('Fuerza relativa', rmActual && peso ? `${fmtRel(rmActual / peso)} <small>× peso</small>` : '—', peso ? 'mejor 1RM estimado ÷ tu peso' : 'Cargá tu peso arriba');
     det.appendChild(caja);
 
-    const t = tarjeta(ejercicio + ' · 1RM estimado', r.actual === null ? '—' : `${fmtNum(r.actual)} <small>kg</small>`);
+    const t = tarjeta(ejercicio + ' · récord de 1RM estimado', rmActual === null ? '—' : `${fmtNum(rmActual)} <small>kg</small>`);
     t.style.marginTop = '12px';
-    if (r.semanas.length < 2) {
-      const v = document.createElement('p'); v.className = 'vacio'; v.textContent = r.semanas.length ? 'Falta una semana más para ver la evolución.' : 'Sin datos en este período.'; t.appendChild(v);
-    } else lineaGrafico(t, r.semanas, ejercicio + ' 1RM estimado', 'kg');
+    if (rmGrafico.length < 2) {
+      const v = document.createElement('p'); v.className = 'vacio'; v.textContent = rmGrafico.length ? 'Falta una semana más para ver la evolución.' : 'Sin datos en este período.'; t.appendChild(v);
+    } else lineaGrafico(t, rmGrafico, ejercicio + ' récord de 1RM estimado', 'kg');
     det.appendChild(t);
 
     const m = P.mejoresPorReps(series, ejercicio, [1, 3, 5, 8]);
