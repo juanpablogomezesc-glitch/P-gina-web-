@@ -94,6 +94,36 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbylFtcY4713gLi-avuOwQ49
     mostrar('estado', texto, true);
   }
 
+  /* Datos del alumno: se guardan solo en este dispositivo para no tipearlos cada vez. */
+  const CLAVE_DATOS = 'turnos-mis-datos';
+  function leerDatos() {
+    try {
+      const d = JSON.parse(localStorage.getItem(CLAVE_DATOS) || 'null');
+      return d && typeof d === 'object' ? d : null;
+    } catch (_) { return null; }
+  }
+  function guardarDatos(d) {
+    try { localStorage.setItem(CLAVE_DATOS, JSON.stringify({ nombre: d.nombre, apellido: d.apellido, email: d.email })); } catch (_) { /* sin almacenamiento: se completa a mano */ }
+  }
+  function olvidarDatos() {
+    try { localStorage.removeItem(CLAVE_DATOS); } catch (_) { /* nada que borrar */ }
+    ['nombre', 'apellido', 'email'].forEach(id => { $(id).value = ''; });
+    $('recordado').hidden = true;
+    $('nombre').focus();
+  }
+  function rellenar() {
+    const d = leerDatos();
+    const completo = d && d.nombre && d.apellido && d.email;
+    if (completo) {
+      $('nombre').value = String(d.nombre).slice(0, 60);
+      $('apellido').value = String(d.apellido).slice(0, 60);
+      $('email').value = String(d.email).slice(0, 120);
+    }
+    $('recordado').hidden = !completo;
+    return Boolean(completo);
+  }
+  $('olvidar').addEventListener('click', olvidarDatos);
+
   function elegir(dia, turno) {
     elegido = { fecha: dia.fecha, hora: turno.hora, etiqueta: dia.etiqueta };
     $('turno-elegido').textContent = `${dia.etiqueta} · ${turno.hora}`;
@@ -103,7 +133,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbylFtcY4713gLi-avuOwQ49
     $('dias').hidden = true;
     $('formulario').hidden = false;
     $('formulario').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    $('nombre').focus({ preventScroll: true });
+    (rellenar() ? $('confirmar') : $('nombre')).focus({ preventScroll: true });
   }
 
   $('volver').addEventListener('click', () => {
@@ -139,6 +169,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbylFtcY4713gLi-avuOwQ49
     $('confirmar').textContent = 'Confirmar reserva';
     if (!r.ok) return errorFormulario(r.error);
 
+    guardarDatos(datos);
     $('formulario').hidden = true;
     const detalle = `${elegido.etiqueta} · ${elegido.hora} · ${datos.lugares === 1 ? '1 lugar' : `${datos.lugares} lugares`}. `;
     // r.mail es false solo cuando el sistema no pudo mandar el mail (en el modo de prueba no existe el dato).

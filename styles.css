@@ -453,3 +453,6 @@ h2.titulo-grande { font-size: clamp(2.2rem, 7vw, 4rem); line-height: 1.1; margin
 .con-volver-progreso { padding-bottom: 72px; } /* para que el botón no tape el final de la página */
 @media (prefers-reduced-motion: reduce) { .volver-progreso:active { transform: none; } }
 @media print { .volver-progreso { display: none; } }
+
+.recordado { color: var(--suave); font-size: 0.9rem; margin: 0.8rem 0 0; }
+.enlace-boton { background: none; border: 0; padding: 0; font: inherit; color: var(--acento); text-decoration: underline; cursor: pointer; }

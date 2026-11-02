@@ -22,7 +22,7 @@
   <!-- Las fuentes no frenan la página: se cargan en paralelo y se aplican cuando llegan -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="styles.css?v=2b6c3c85">
+  <link rel="stylesheet" href="styles.css?v=7a6582e8">
 </head>
 <body>
   <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -75,6 +75,8 @@
           <input id="sitio" name="sitio" tabindex="-1" autocomplete="off">
         </div>
 
+        <p id="recordado" class="recordado" hidden>Datos guardados en este dispositivo. <button type="button" id="olvidar" class="enlace-boton">No soy yo / borrar</button></p>
+
         <p id="error-formulario" class="error" role="alert" hidden></p>
         <div class="acciones">
           <button type="submit" class="boton" id="confirmar">Confirmar reserva</button>
@@ -109,7 +111,7 @@
     <p>&copy; <span id="anio"></span> Juan Pablo Gómez · Entrenamiento personal</p>
   </footer>
 
-  <script src="turnos.js?v=e930fd49"></script>
+  <script src="turnos.js?v=1f9eaa08"></script>
   <script src="volver.js?v=878bfb49" defer></script>
 </body>
 </html>
