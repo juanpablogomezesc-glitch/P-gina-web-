@@ -851,6 +851,17 @@ test('la membresía se calcula con el nombre aproximado y el pago más reciente'
   assert.deepEqual(get({ accion: 'progreso', clave: CLAVE_A }).membresia, { vence: '2026-11-12' });
 });
 
+test('un pago nuevo se ve en el dashboard en menos de 6 minutos, aunque la respuesta del alumno esté guardada', () => {
+  const encabezado = ['Fecha ', 'Alumno ', 'Servicio ', 'Monto ', 'Total '];
+  const hojasFin = [hoja('Mes0', [encabezado, ['02/10/26', 'Ana', 'PE', '1']])];
+  const { get, reloj } = entorno({ alumnos: [['Ana', '', `https://docs.google.com/spreadsheets/d/${ID_A}/edit`, CLAVE_A, '']], planillas: { ...planillas, [ID_FINANZAS]: planilla(hojasFin) } });
+  const antes = get({ accion: 'progreso', clave: CLAVE_A }).membresia;
+  assert.deepEqual(antes, { vence: '2026-11-01' });
+  hojasFin[0] = hoja('Mes0', [encabezado, ['02/10/26', 'Ana', 'PE', '1'], ['04/11/26', 'Ana', 'PE', '1']]);
+  reloj.t += 6 * 60 * 1000;
+  assert.deepEqual(get({ accion: 'progreso', clave: CLAVE_A }).membresia, { vence: '2026-12-04' });
+});
+
 test('controlarPagos distingue las coincidencias aproximadas y sugiere para los que difieren en más letras', () => {
   const fin = finanzas([['13/10/26', 'Fabriccio Bonetti', 'PE', '1'], ['11/10/26', 'Romina Schmidt', 'PE', '1'], ['10/10/26', 'Ana Gómez', 'PE', '1']]);
   const al = [['Fabricio Bonetti', '', `https://docs.google.com/spreadsheets/d/${idA(1)}/edit`, CLAVE_A, ''], ['Romina Schmitd', '', `https://docs.google.com/spreadsheets/d/${idA(2)}/edit`, CLAVE_B, ''], ['Ana Gómez', '', `https://docs.google.com/spreadsheets/d/${idA(3)}/edit`, 'c3', '']];

@@ -34,7 +34,7 @@ const MENSAJE_WHATSAPP = 'Hola {nombre}! Ya tenés tu panel personal: ahí ves t
 const FINANZAS_ID = '1wQKjfoI9KglNirjvoeCuVIzbYB01d5u4RSoBthHcGFM';
 const CARPETAS_NO_ABONAN = ['Alumnos becados', 'Alumnos que no abonan']; // nombres válidos de esa subcarpeta (da igual mayúsculas y tildes)
 const DIAS_MEMBRESIA = 30;
-const SEGUNDOS_PAGOS = 1800;         // los pagos y la lista de quienes no abonan se releen cada 30 minutos
+const SEGUNDOS_PAGOS = 300;          // los pagos y la lista de quienes no abonan se releen cada 5 minutos
 const LINK_PARA_MEDIR = '';          // solo para medirTiempos: el link de la planilla que querés medir
 // ======================
 
@@ -567,7 +567,7 @@ function sumarPagos_(valores, pagos) {
   return pagos;
 }
 
-/** El último pago de cada alumno, de todas las pestañas de FINANZAS_ID. Se guarda 30 minutos; si falla, {} y el dashboard simplemente no muestra la membresía. */
+/** El último pago de cada alumno, de todas las pestañas de FINANZAS_ID. Se guarda 5 minutos; si falla, {} y el dashboard simplemente no muestra la membresía. */
 function leerPagos_(forzar) {
   if (!FINANZAS_ID) return {};
   const guardado = forzar ? null : memoriaLeer_('pagos');
@@ -587,7 +587,7 @@ function leerPagos_(forzar) {
   }
 }
 
-/** IDs de las planillas que están en la subcarpeta de quienes no abonan (la que se llame como alguno de CARPETAS_NO_ABONAN). Se guarda 30 minutos. */
+/** IDs de las planillas que están en la subcarpeta de quienes no abonan (la que se llame como alguno de CARPETAS_NO_ABONAN). Se guarda 5 minutos. */
 function idsNoAbonan_(forzar) {
   const guardado = forzar ? null : memoriaLeer_('noabonan');
   if (guardado) return guardado;
@@ -712,6 +712,11 @@ const enviar_ = texto => ContentService.createTextOutput(texto).setMimeType(Cont
  * las semanas ya cerradas: así "Actualizar" solo relee las últimas. El vencimiento no se renueva con cada visita: una corrección
  * en una semana vieja de la planilla llega al alumno como máximo 6 horas después.
  */
+/** Vencimiento de la membresía de un alumno, calculado en cada visita (no queda en la respuesta guardada) para que un pago nuevo se vea enseguida. */
+function membresiaActual_(alumno) {
+  return membresiaDe_(alumno.nombre, alumno.planilla, leerPagos_(), idsNoAbonan_(), listaAlumnos_().map(a => a.nombre)); // solo la fecha de vencimiento; null si no abona
+}
+
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.accion !== 'progreso') return respuesta_({ ok: false, error: 'Acción desconocida.' });
@@ -725,7 +730,7 @@ function doGet(e) {
   const guardada = memoriaLeer_('p_' + clave);
   if (guardada && !(p.fresco === '1' && edadEnSegundos_(guardada.actualizado) >= SEGUNDOS_MINIMOS_ENTRE_LECTURAS)) {
     const { paq, ...resto } = guardada;
-    return enviar_(JSON.stringify({ ...resto, ...desempaquetar_(paq) }));
+    return enviar_(JSON.stringify({ ...resto, membresia: membresiaActual_(alumno), ...desempaquetar_(paq) }));
   }
 
   const llaveHistoria = `h_${clave}_${alumno.planilla}`;
@@ -749,7 +754,7 @@ function doGet(e) {
     ok: true, nombre: alumno.nombre, actualizado: new Date().toISOString(), ...resto,
     rutina: urlRutina_(alumno.planilla, semanaActual && semanaActual.gid), // el botón "Mi rutina": la planilla de ESTE alumno, nada más
     rutinaSemana: semanaActual ? semanaActual.n : null,
-    membresia: membresiaDe_(alumno.nombre, alumno.planilla, leerPagos_(), idsNoAbonan_(), listaAlumnos_().map(a => a.nombre)), // solo la fecha de vencimiento; null si no abona
+    membresia: membresiaActual_(alumno),
   };
   memoriaGuardar_('p_' + clave, { ...respuestaAlumno, paq: empaquetar_(series, dias) }, SEGUNDOS_EN_MEMORIA);
   return enviar_(JSON.stringify({ ...respuestaAlumno, series, dias }));
